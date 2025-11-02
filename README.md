@@ -31,19 +31,18 @@ A full-stack hotel booking system built with Spring Boot, Thymeleaf, MySQL, and 
    ```bash
    git clone <repository-url>
    cd hotel-booking-system
-   '''
-      
+
 2. **Set up the database**
-   '''bash
+   ```bash
    ./scripts/setup-database.sh
    Build the application
 
-   '''bash
+   ```bash
    ./build-and-run.sh
    
    Or manually:
 
-   '''bash
+   ```bash
    mvn clean package
    java -jar target/hotel-booking-system-1.0.0.jar
    
