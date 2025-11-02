@@ -5,29 +5,18 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
 import java.util.List;
 
 @Repository
 public interface HotelRepository extends JpaRepository<Hotel, Long> {
+    List<Hotel> findByCity(String city);
+    List<Hotel> findByCountry(String country);
     
-    // Find hotels by location (case-insensitive)
-    List<Hotel> findByLocationContainingIgnoreCase(String location);
+    @Query("SELECT h FROM Hotel h WHERE h.name LIKE %:name%")
+    List<Hotel> findByNameContaining(@Param("name") String name);
     
-    // Find hotels by minimum rating
-    List<Hotel> findByRatingGreaterThanEqual(Double minRating);
+    @Query("SELECT DISTINCT h.city FROM Hotel h")
+    List<String> findAllCities();
     
-    // Find hotels by name (case-insensitive)
-    List<Hotel> findByNameContainingIgnoreCase(String name);
-    
-    // Find top 10 hotels by rating
-    List<Hotel> findTop10ByOrderByRatingDesc();
-    
-    // Advanced search combining multiple fields
-    @Query("SELECT h FROM Hotel h WHERE " +
-           "LOWER(h.name) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
-           "LOWER(h.location) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
-           "LOWER(h.description) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
-           "LOWER(h.amenities) LIKE LOWER(CONCAT('%', :query, '%'))")
-    List<Hotel> comprehensiveSearch(@Param("query") String query);
+    List<Hotel> findByStarRatingGreaterThanEqual(Integer starRating);
 }

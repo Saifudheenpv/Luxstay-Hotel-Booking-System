@@ -1,11 +1,11 @@
 package com.hotel.controller;
 
 import com.hotel.model.Booking;
-import com.hotel.model.Room;
 import com.hotel.model.User;
 import com.hotel.service.BookingService;
+import com.hotel.service.HotelService;
 import com.hotel.service.RoomService;
-import jakarta.servlet.http.HttpSession;
+import com.hotel.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
@@ -13,144 +13,171 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.math.BigDecimal;
+import javax.servlet.http.HttpSession;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.Optional;
 
 @Controller
+@RequestMapping("/bookings")
 public class BookingController {
     
     @Autowired
     private BookingService bookingService;
     
     @Autowired
+    private HotelService hotelService;
+    
+    @Autowired
     private RoomService roomService;
-
-    @GetMapping("/room/{id}/details")
-    public String showRoomDetails(@PathVariable Long id, 
-                                 @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate checkIn,
-                                 @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate checkOut,
+    
+    @Autowired
+    private UserService userService;
+    
+    @GetMapping("/new/{roomId}")
+    public String showBookingForm(@PathVariable Long roomId, 
+                                 @RequestParam(required = false) Long hotelId,
                                  Model model, HttpSession session) {
-        User user = (User) session.getAttribute("user");
-        if (user == null) {
-            return "redirect:/login";
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return "redirect:/auth/login";
         }
-
-        Room room = roomService.getRoomById(id);
-        if (room == null) {
-            return "redirect:/";
-        }
-
-        model.addAttribute("user", user);
-        model.addAttribute("room", room);
-        model.addAttribute("hotel", room.getHotel());
-        model.addAttribute("checkIn", checkIn);
-        model.addAttribute("checkOut", checkOut);
-
-        if (checkIn != null && checkOut != null) {
-            long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
-            BigDecimal totalPrice = room.getPrice().multiply(BigDecimal.valueOf(nights));
-            model.addAttribute("nights", nights);
-            model.addAttribute("totalPrice", totalPrice);
-        }
-
-        return "room-details";
+        
+        roomService.getRoomById(roomId).ifPresent(room -> {
+            model.addAttribute("room", room);
+            model.addAttribute("hotel", room.getHotel());
+        });
+        
+        Booking booking = new Booking();
+        booking.setCheckInDate(LocalDate.now().plusDays(1));
+        booking.setCheckOutDate(LocalDate.now().plusDays(2));
+        booking.setGuests(1);
+        
+        model.addAttribute("booking", booking);
+        
+        // Format dates for HTML input
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        model.addAttribute("minDate", LocalDate.now().plusDays(1).format(formatter));
+        model.addAttribute("checkInDate", booking.getCheckInDate().format(formatter));
+        model.addAttribute("checkOutDate", booking.getCheckOutDate().format(formatter));
+        
+        Optional<User> userOpt = userService.findById(userId);
+        userOpt.ifPresent(user -> model.addAttribute("currentUser", user));
+        
+        return "booking-form";
     }
-
-    @PostMapping("/book-room")
-    public String bookRoom(@RequestParam Long roomId,
-                          @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate checkIn,
-                          @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate checkOut,
-                          @RequestParam Integer guests,
-                          @RequestParam(required = false) String specialRequests,
-                          HttpSession session,
-                          RedirectAttributes redirectAttributes) {
-        User user = (User) session.getAttribute("user");
-        if (user == null) {
-            return "redirect:/login";
+    
+    @PostMapping("/create")
+    public String createBooking(@RequestParam Long roomId,
+                              @RequestParam Long hotelId,
+                              @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkInDate,
+                              @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOutDate,
+                              @RequestParam Integer guests,
+                              @RequestParam(required = false) String specialRequests,
+                              HttpSession session,
+                              RedirectAttributes redirectAttributes) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return "redirect:/auth/login";
         }
-
-        // Validate dates
-        if (checkIn.isBefore(LocalDate.now()) || checkOut.isBefore(LocalDate.now()) || 
-            checkOut.isBefore(checkIn) || checkIn.equals(checkOut)) {
-            redirectAttributes.addFlashAttribute("error", "Invalid dates selected! Please ensure check-out is after check-in.");
-            return "redirect:/my-bookings";
-        }
-
-        Room room = roomService.getRoomById(roomId);
-        if (room != null) {
-            try {
-                Booking booking = bookingService.createBooking(user, room, checkIn, checkOut, guests, specialRequests);
-                redirectAttributes.addFlashAttribute("success", 
-                    "Booking confirmed! Your Booking ID: " + booking.getId() + 
-                    ". Total Amount: $" + booking.getTotalPrice() +
-                    ". Check your email for confirmation details.");
-                return "redirect:/booking-confirmation/" + booking.getId();
-            } catch (Exception e) {
-                redirectAttributes.addFlashAttribute("error", "Booking failed: " + e.getMessage());
-            }
-        } else {
-            redirectAttributes.addFlashAttribute("error", "Room not found!");
-        }
-
-        return "redirect:/my-bookings";
-    }
-
-    @GetMapping("/my-bookings")
-    public String showMyBookings(Model model, HttpSession session) {
-        User user = (User) session.getAttribute("user");
-        if (user == null) {
-            return "redirect:/login";
-        }
-
-        List<Booking> bookings = bookingService.getUserBookings(user.getId());
-        model.addAttribute("bookings", bookings);
-        model.addAttribute("user", user);
-        return "my-bookings";
-    }
-
-    @PostMapping("/cancel-booking")
-    public String cancelBooking(@RequestParam Long bookingId, RedirectAttributes redirectAttributes, HttpSession session) {
-        User user = (User) session.getAttribute("user");
-        if (user == null) {
-            return "redirect:/login";
-        }
-
+        
         try {
-            // Verify the booking belongs to the user
-            Optional<Booking> bookingOpt = bookingService.getBookingById(bookingId);
-            if (bookingOpt.isPresent() && bookingOpt.get().getUser().getId().equals(user.getId())) {
-                bookingService.cancelBooking(bookingId);
-                redirectAttributes.addFlashAttribute("success", "Booking cancelled successfully!");
+            Optional<User> userOpt = userService.findById(userId);
+            Optional<com.hotel.model.Room> roomOpt = roomService.getRoomById(roomId);
+            Optional<com.hotel.model.Hotel> hotelOpt = hotelService.getHotelById(hotelId);
+            
+            if (userOpt.isPresent() && roomOpt.isPresent() && hotelOpt.isPresent()) {
+                // Create booking object
+                Booking booking = new Booking();
+                booking.setCheckInDate(checkInDate);
+                booking.setCheckOutDate(checkOutDate);
+                booking.setGuests(guests);
+                booking.setSpecialRequests(specialRequests);
+                booking.setUser(userOpt.get());
+                booking.setRoom(roomOpt.get());
+                booking.setHotel(hotelOpt.get());
+                
+                // Validate dates
+                if (checkInDate.isBefore(LocalDate.now())) {
+                    redirectAttributes.addFlashAttribute("error", "Check-in date cannot be in the past");
+                    return "redirect:/bookings/new/" + roomId + "?hotelId=" + hotelId;
+                }
+                
+                if (checkOutDate.isBefore(checkInDate) || checkOutDate.isEqual(checkInDate)) {
+                    redirectAttributes.addFlashAttribute("error", "Check-out date must be after check-in date");
+                    return "redirect:/bookings/new/" + roomId + "?hotelId=" + hotelId;
+                }
+                
+                // Check room availability
+                if (!bookingService.isRoomAvailable(roomId, booking.getCheckInDate(), booking.getCheckOutDate())) {
+                    redirectAttributes.addFlashAttribute("error", "Room is not available for the selected dates");
+                    return "redirect:/bookings/new/" + roomId + "?hotelId=" + hotelId;
+                }
+                
+                Booking savedBooking = bookingService.createBooking(booking);
+                redirectAttributes.addFlashAttribute("success", "Booking confirmed successfully!");
+                return "redirect:/bookings/confirmation/" + savedBooking.getId();
             } else {
-                redirectAttributes.addFlashAttribute("error", "Booking not found or access denied!");
+                redirectAttributes.addFlashAttribute("error", "Invalid booking details");
+                return "redirect:/hotels";
             }
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", "Error cancelling booking: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Error creating booking: " + e.getMessage());
+            return "redirect:/bookings/new/" + roomId + "?hotelId=" + hotelId;
         }
-        return "redirect:/my-bookings";
     }
-
-    @GetMapping("/booking-confirmation/{id}")
-    public String showBookingConfirmation(@PathVariable Long id, Model model, HttpSession session, RedirectAttributes redirectAttributes) {
-        User user = (User) session.getAttribute("user");
-        if (user == null) {
-            return "redirect:/login";
+    
+    @GetMapping("/confirmation/{id}")
+    public String bookingConfirmation(@PathVariable Long id, Model model, HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return "redirect:/auth/login";
         }
-
-        Optional<Booking> bookingOpt = bookingService.getBookingById(id);
-        if (bookingOpt.isPresent() && bookingOpt.get().getUser().getId().equals(user.getId())) {
-            Booking booking = bookingOpt.get();
-            
+        
+        bookingService.getBookingById(id).ifPresent(booking -> {
             model.addAttribute("booking", booking);
-            model.addAttribute("user", user);
             
-            return "booking-confirmation";
+            // Calculate duration
+            long nights = ChronoUnit.DAYS.between(booking.getCheckInDate(), booking.getCheckOutDate());
+            model.addAttribute("bookingDuration", nights);
+        });
+        
+        Optional<User> userOpt = userService.findById(userId);
+        userOpt.ifPresent(user -> model.addAttribute("currentUser", user));
+        
+        return "booking-confirmation";
+    }
+    
+    @GetMapping("/my-bookings")
+    public String getMyBookings(Model model, HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return "redirect:/auth/login";
         }
-
-        redirectAttributes.addFlashAttribute("error", "Booking not found!");
-        return "redirect:/my-bookings";
+        
+        model.addAttribute("bookings", bookingService.getBookingsByUserId(userId));
+        
+        Optional<User> userOpt = userService.findById(userId);
+        userOpt.ifPresent(user -> model.addAttribute("currentUser", user));
+        
+        return "my-bookings";
+    }
+    
+    @PostMapping("/cancel/{id}")
+    public String cancelBooking(@PathVariable Long id, HttpSession session, RedirectAttributes redirectAttributes) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return "redirect:/auth/login";
+        }
+        
+        try {
+            bookingService.cancelBooking(id);
+            redirectAttributes.addFlashAttribute("success", "Booking cancelled successfully");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Error cancelling booking");
+        }
+        
+        return "redirect:/bookings/my-bookings";
     }
 }

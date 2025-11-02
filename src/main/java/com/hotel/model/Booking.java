@@ -1,78 +1,74 @@
 package com.hotel.model;
 
-import jakarta.persistence.*;
-import java.math.BigDecimal;
+import org.springframework.format.annotation.DateTimeFormat;
+
+import javax.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 
 @Entity
 @Table(name = "bookings")
 public class Booking {
-    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "room_id", nullable = false)
-    private Room room;
-    
     @Column(name = "check_in_date", nullable = false)
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate checkInDate;
     
     @Column(name = "check_out_date", nullable = false)
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate checkOutDate;
     
     @Column(nullable = false)
     private Integer guests;
     
-    @Column(name = "total_price", nullable = false, precision = 10, scale = 2)
-    private BigDecimal totalPrice;
+    @Column(nullable = false)
+    private Double totalPrice;
     
-    @Column(name = "special_requests", columnDefinition = "TEXT")
+    private String status;
     private String specialRequests;
     
-    @Column(nullable = false)
-    private String status = "CONFIRMED"; // CONFIRMED, CANCELLED, COMPLETED
+    @Column(name = "booking_date")
+    private LocalDateTime bookingDate;
     
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
     
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "hotel_id")
+    private Hotel hotel;
     
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "room_id")
+    private Room room;
+
     // Constructors
     public Booking() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+        this.bookingDate = LocalDateTime.now();
+        this.status = "PENDING";
     }
     
-    public Booking(User user, Room room, LocalDate checkInDate, LocalDate checkOutDate, 
-                  Integer guests, BigDecimal totalPrice, String specialRequests) {
+    public Booking(LocalDate checkInDate, LocalDate checkOutDate, Integer guests, 
+                   Double totalPrice, String status, String specialRequests, 
+                   User user, Hotel hotel, Room room) {
         this();
-        this.user = user;
-        this.room = room;
         this.checkInDate = checkInDate;
         this.checkOutDate = checkOutDate;
         this.guests = guests;
         this.totalPrice = totalPrice;
+        this.status = status;
         this.specialRequests = specialRequests;
+        this.user = user;
+        this.hotel = hotel;
+        this.room = room;
     }
-    
+
     // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-    
-    public User getUser() { return user; }
-    public void setUser(User user) { this.user = user; }
-    
-    public Room getRoom() { return room; }
-    public void setRoom(Room room) { this.room = room; }
     
     public LocalDate getCheckInDate() { return checkInDate; }
     public void setCheckInDate(LocalDate checkInDate) { this.checkInDate = checkInDate; }
@@ -83,48 +79,24 @@ public class Booking {
     public Integer getGuests() { return guests; }
     public void setGuests(Integer guests) { this.guests = guests; }
     
-    public BigDecimal getTotalPrice() { return totalPrice; }
-    public void setTotalPrice(BigDecimal totalPrice) { this.totalPrice = totalPrice; }
+    public Double getTotalPrice() { return totalPrice; }
+    public void setTotalPrice(Double totalPrice) { this.totalPrice = totalPrice; }
+    
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
     
     public String getSpecialRequests() { return specialRequests; }
     public void setSpecialRequests(String specialRequests) { this.specialRequests = specialRequests; }
     
-    public String getStatus() { return status; }
-    public void setStatus(String status) { 
-        this.status = status; 
-        this.updatedAt = LocalDateTime.now();
-    }
+    public LocalDateTime getBookingDate() { return bookingDate; }
+    public void setBookingDate(LocalDateTime bookingDate) { this.bookingDate = bookingDate; }
     
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public User getUser() { return user; }
+    public void setUser(User user) { this.user = user; }
     
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public Hotel getHotel() { return hotel; }
+    public void setHotel(Hotel hotel) { this.hotel = hotel; }
     
-    // Helper methods
-    @PreUpdate
-    public void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
-    
-    public boolean isActive() {
-        return "CONFIRMED".equals(this.status) && 
-               this.checkOutDate != null && 
-               this.checkOutDate.isAfter(LocalDate.now());
-    }
-    
-    public boolean canBeCancelled() {
-        return "CONFIRMED".equals(this.status) && 
-               this.checkInDate != null && 
-               this.checkInDate.isAfter(LocalDate.now());
-    }
-    
-    // NEW METHOD: Calculate number of nights
-    public long getNumberOfNights() {
-        if (checkInDate != null && checkOutDate != null) {
-            return ChronoUnit.DAYS.between(checkInDate, checkOutDate);
-        }
-        return 0;
-    }
-    
+    public Room getRoom() { return room; }
+    public void setRoom(Room room) { this.room = room; }
 }

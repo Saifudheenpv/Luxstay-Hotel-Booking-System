@@ -1,73 +1,100 @@
 package com.hotel.controller;
 
-import com.hotel.model.Hotel;
-import com.hotel.model.Room;
+import com.hotel.model.User;
 import com.hotel.service.HotelService;
 import com.hotel.service.RoomService;
+import com.hotel.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
+import javax.servlet.http.HttpSession;
+import java.util.Optional;
 
 @Controller
+@RequestMapping("/hotels")
 public class HotelController {
-
+    
     @Autowired
     private HotelService hotelService;
-
+    
     @Autowired
     private RoomService roomService;
-
-    @GetMapping("/hotels/{id}/rooms")
-    public String viewHotelRooms(@PathVariable Long id,
-                                @RequestParam(required = false) String checkIn,
-                                @RequestParam(required = false) String checkOut,
-                                @RequestParam(required = false) String roomType,
-                                @RequestParam(required = false) Double maxPrice,
-                                Model model) {
+    
+    @Autowired
+    private UserService userService;
+    
+    @GetMapping
+    public String getAllHotels(Model model, HttpSession session) {
+        model.addAttribute("hotels", hotelService.getAllHotels());
+        model.addAttribute("cities", hotelService.getAllCities());
+        model.addAttribute("selectedCity", "");
+        model.addAttribute("searchQuery", "");
         
-        Hotel hotel = hotelService.getHotelById(id);
-        
-        if (hotel != null) {
-            // Use the new filtering method that handles dates and availability
-            List<Room> rooms = roomService.getFilteredRooms(id, checkIn, checkOut, roomType, maxPrice);
-            
-            // Calculate nights if dates are provided
-            int nights = 0;
-            LocalDate parsedCheckIn = null;
-            LocalDate parsedCheckOut = null;
-            
-            if (checkIn != null && checkOut != null && !checkIn.isEmpty() && !checkOut.isEmpty()) {
-                try {
-                    parsedCheckIn = LocalDate.parse(checkIn);
-                    parsedCheckOut = LocalDate.parse(checkOut);
-                    nights = (int) ChronoUnit.DAYS.between(parsedCheckIn, parsedCheckOut);
-                    nights = Math.max(nights, 1); // Ensure at least 1 night
-                } catch (Exception e) {
-                    // Handle date parsing errors
-                    nights = 1;
-                }
-            }
-            
-            model.addAttribute("hotel", hotel);
-            model.addAttribute("rooms", rooms);
-            model.addAttribute("checkIn", checkIn);  // Keep as String for form values
-            model.addAttribute("checkOut", checkOut); // Keep as String for form values
-            model.addAttribute("parsedCheckIn", parsedCheckIn); // Add parsed dates if needed
-            model.addAttribute("parsedCheckOut", parsedCheckOut); // Add parsed dates if needed
-            model.addAttribute("roomType", roomType);
-            model.addAttribute("maxPrice", maxPrice);
-            model.addAttribute("nights", nights);
-            
-            return "hotel-rooms";
-        } else {
-            return "redirect:/?error=Hotel+not+found";
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId != null) {
+            Optional<User> userOpt = userService.findById(userId);
+            userOpt.ifPresent(user -> model.addAttribute("currentUser", user));
         }
+        
+        return "hotels";
+    }
+    
+    @GetMapping("/{id}")
+    public String getHotelById(@PathVariable Long id, Model model, HttpSession session) {
+        hotelService.getHotelById(id).ifPresent(hotel -> {
+            model.addAttribute("hotel", hotel);
+            model.addAttribute("rooms", roomService.getAvailableRoomsByHotelId(id));
+        });
+        
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId != null) {
+            Optional<User> userOpt = userService.findById(userId);
+            userOpt.ifPresent(user -> model.addAttribute("currentUser", user));
+        }
+        
+        return "hotel-rooms";
+    }
+    
+    @GetMapping("/search")
+    public String searchHotels(@RequestParam(required = false) String query, 
+                              @RequestParam(required = false) String city,
+                              Model model, HttpSession session) {
+        if (city != null && !city.isEmpty()) {
+            model.addAttribute("hotels", hotelService.getHotelsByCity(city));
+        } else if (query != null && !query.isEmpty()) {
+            model.addAttribute("hotels", hotelService.searchHotels(query));
+        } else {
+            model.addAttribute("hotels", hotelService.getAllHotels());
+        }
+        
+        model.addAttribute("cities", hotelService.getAllCities());
+        model.addAttribute("searchQuery", query != null ? query : "");
+        model.addAttribute("selectedCity", city != null ? city : "");
+        
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId != null) {
+            Optional<User> userOpt = userService.findById(userId);
+            userOpt.ifPresent(user -> model.addAttribute("currentUser", user));
+        }
+        
+        return "hotels";
+    }
+    
+    @GetMapping("/city/{city}")
+    public String getHotelsByCity(@PathVariable String city, Model model, HttpSession session) {
+        model.addAttribute("hotels", hotelService.getHotelsByCity(city));
+        model.addAttribute("cities", hotelService.getAllCities());
+        model.addAttribute("selectedCity", city);
+        model.addAttribute("searchQuery", "");
+        
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId != null) {
+            Optional<User> userOpt = userService.findById(userId);
+            userOpt.ifPresent(user -> model.addAttribute("currentUser", user));
+        }
+        
+        return "hotels";
     }
 }

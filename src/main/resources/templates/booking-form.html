@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Room - Hotel Booking System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <style>
+        .booking-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 3rem 0;
+            margin-top: 76px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-hotel"></i> HotelBooking
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/hotels">Hotels</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/about">About</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/contact">Contact</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <div th:if="${currentUser != null}">
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-user"></i> <span th:text="${currentUser.firstName}"></span>
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="/profile"><i class="fas fa-user-circle"></i> Profile</a></li>
+                                <li><a class="dropdown-item" href="/bookings/my-bookings"><i class="fas fa-calendar-check"></i> My Bookings</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="/auth/logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                            </ul>
+                        </li>
+                    </div>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header -->
+    <section class="booking-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a th:href="@{/}" class="text-white">Home</a></li>
+                            <li class="breadcrumb-item"><a th:href="@{/hotels}" class="text-white">Hotels</a></li>
+                            <li class="breadcrumb-item"><a th:href="@{/hotels/{id}(id=${hotel.id})}" class="text-white" th:text="${hotel.name}"></a></li>
+                            <li class="breadcrumb-item active text-white">Book Room</li>
+                        </ol>
+                    </nav>
+                    <h1 class="display-5 fw-bold">Book Your Stay</h1>
+                    <p class="lead mb-0" th:text="'At ' + ${hotel.name}"></p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <div class="card bg-dark text-white">
+                        <div class="card-body">
+                            <h5 th:text="${room.type}"></h5>
+                            <h3 class="text-warning" th:text="'$' + ${room.price} + ' / night'"></h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Booking Form -->
+    <section class="py-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h4 class="mb-0"><i class="fas fa-calendar-alt"></i> Booking Details</h4>
+                        </div>
+                        <div class="card-body">
+                            <form th:action="@{/bookings/create}" method="post">
+                                <input type="hidden" name="roomId" th:value="${room.id}">
+                                <input type="hidden" name="hotelId" th:value="${hotel.id}">
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="checkInDate" class="form-label">Check-in Date</label>
+                                        <input type="date" class="form-control" id="checkInDate" 
+                                               name="checkInDate" th:value="${checkInDate}" 
+                                               th:min="${minDate}" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="checkOutDate" class="form-label">Check-out Date</label>
+                                        <input type="date" class="form-control" id="checkOutDate" 
+                                               name="checkOutDate" th:value="${checkOutDate}" required>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="guests" class="form-label">Number of Guests</label>
+                                        <select class="form-select" id="guests" name="guests" required>
+                                            <option value="1" th:selected="${booking.guests == 1}">1 Guest</option>
+                                            <option value="2" th:selected="${booking.guests == 2}">2 Guests</option>
+                                            <option value="3" th:selected="${booking.guests == 3}">3 Guests</option>
+                                            <option value="4" th:selected="${booking.guests == 4}">4 Guests</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Total Nights</label>
+                                        <input type="text" class="form-control" id="totalNights" readonly value="0">
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="specialRequests" class="form-label">Special Requests</label>
+                                    <textarea class="form-control" id="specialRequests" name="specialRequests" 
+                                              rows="4" placeholder="Any special requirements or requests..."></textarea>
+                                </div>
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Room Price</label>
+                                        <input type="text" class="form-control" id="roomPrice" 
+                                               th:value="'$' + ${room.price} + ' / night'" readonly>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Total Price</label>
+                                        <input type="text" class="form-control fw-bold text-success" id="totalPrice" readonly value="$0.00">
+                                    </div>
+                                </div>
+                                
+                                <div class="d-grid gap-2">
+                                    <button type="submit" class="btn btn-primary btn-lg">
+                                        <i class="fas fa-check-circle"></i> Confirm Booking
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Room Summary -->
+                <div class="col-lg-4">
+                    <div class="card sticky-top" style="top: 100px;">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">Room Summary</h5>
+                        </div>
+                        <div class="card-body">
+                            <img th:src="${room.imageUrl}" alt="Room Image" class="img-fluid rounded mb-3">
+                            <h6 th:text="${room.type}"></h6>
+                            <p class="text-muted small" th:text="${room.description}"></p>
+                            <div class="room-details">
+                                <div class="mb-2">
+                                    <strong>Room Number:</strong> <span th:text="${room.roomNumber}"></span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Capacity:</strong> <span th:text="${room.capacity} + ' Guests'"></span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Amenities:</strong>
+                                    <small class="text-muted" th:text="${room.amenities}"></small>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="hotel-info">
+                                <h6>Hotel Information</h6>
+                                <p class="mb-1" th:text="${hotel.name}"></p>
+                                <small class="text-muted" th:text="${hotel.address}"></small>
+                                <br>
+                                <small class="text-muted" th:text="${hotel.phone}"></small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white py-4">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5><i class="fas fa-hotel"></i> HotelBooking</h5>
+                    <p>Your trusted partner for hotel bookings worldwide.</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <p>&copy; 2024 HotelBooking System. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function calculateTotal() {
+            const checkIn = document.getElementById('checkInDate').value;
+            const checkOut = document.getElementById('checkOutDate').value;
+            const roomPrice = parseFloat([[${room.price}]]);
+            
+            if (checkIn && checkOut) {
+                const checkInDate = new Date(checkIn);
+                const checkOutDate = new Date(checkOut);
+                
+                if (checkOutDate > checkInDate) {
+                    const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
+                    const totalPrice = nights * roomPrice;
+                    
+                    document.getElementById('totalNights').value = nights + ' night(s)';
+                    document.getElementById('totalPrice').value = '$' + totalPrice.toFixed(2);
+                } else {
+                    document.getElementById('totalNights').value = '0';
+                    document.getElementById('totalPrice').value = '$0.00';
+                }
+            } else {
+                document.getElementById('totalNights').value = '0';
+                document.getElementById('totalPrice').value = '$0.00';
+            }
+        }
+        
+        document.getElementById('checkInDate').addEventListener('change', function() {
+            const checkIn = this.value;
+            const checkOut = document.getElementById('checkOutDate');
+            
+            if (checkIn) {
+                checkOut.min = checkIn;
+                if (checkOut.value && checkOut.value < checkIn) {
+                    checkOut.value = '';
+                }
+            }
+            calculateTotal();
+        });
+        
+        document.getElementById('checkOutDate').addEventListener('change', function() {
+            const checkOut = this.value;
+            const checkIn = document.getElementById('checkInDate').value;
+            
+            if (checkIn && checkOut && checkOut <= checkIn) {
+                alert('Check-out date must be after check-in date');
+                this.value = '';
+            }
+            calculateTotal();
+        });
+        
+        // Initialize calculation
+        calculateTotal();
+    </script>
+    
+    <!-- Flash Messages -->
+    <div th:if="${success}" class="alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-5" role="alert" style="z-index: 1050;">
+        <span th:text="${success}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <div th:if="${error}" class="alert alert-danger alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-5" role="alert" style="z-index: 1050;">
+        <span th:text="${error}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+</body>
+</html>
