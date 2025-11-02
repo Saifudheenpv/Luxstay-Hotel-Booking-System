@@ -35,7 +35,7 @@ A full-stack hotel booking system built with Spring Boot, Thymeleaf, MySQL, and 
 2. **Set up the database**
    ```bash
    ./scripts/setup-database.sh
-   **
+   
 3. **Build the application**    
    ```bash
    ./build-and-run.sh
@@ -44,7 +44,7 @@ A full-stack hotel booking system built with Spring Boot, Thymeleaf, MySQL, and 
    ```bash
    mvn clean package
    java -jar target/hotel-booking-system-1.0.0.jar
-   
+   ```
 4. ***Access the application***
 Open your browser and navigate to: http://localhost:8080
 
