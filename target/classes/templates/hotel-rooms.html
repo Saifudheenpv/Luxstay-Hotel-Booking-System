@@ -77,7 +77,9 @@
                     <h1 class="display-5 fw-bold" th:text="${hotel.name}"></h1>
                     <div class="d-flex align-items-center mb-3">
                         <span class="badge bg-warning text-dark me-2">
-                            <i class="fas fa-star"></i> <span th:text="${hotel.rating}"></span>
+                            <i class="fas fa-star"></i> 
+                            <span th:if="${averageRating != null and averageRating > 0}" th:text="${averageRating}"></span>
+                            <span th:if="${averageRating == null or averageRating == 0}" th:text="${hotel.rating}"></span>
                         </span>
                         <span class="badge bg-primary me-2" th:text="${hotel.starRating} + ' Stars'"></span>
                         <span class="text-muted">
@@ -155,6 +157,51 @@
                                         </a>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Reviews Section -->
+    <section class="py-5 bg-light" th:if="${reviews != null and not reviews.empty}">
+        <div class="container">
+            <div class="row mb-5">
+                <div class="col text-center">
+                    <h2 class="display-6 fw-bold">Guest Reviews</h2>
+                    <p class="lead text-muted">What our guests say about their stay</p>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-8 mx-auto">
+                    <div class="card">
+                        <div class="card-header bg-white">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Customer Reviews</h5>
+                                <div class="text-warning">
+                                    <i class="fas fa-star"></i>
+                                    <span class="fw-bold" th:text="${averageRating} + ' / 5'"></span>
+                                    <small class="text-muted" th:text="'(' + ${reviewCount} + ' reviews)'"></small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div th:each="review : ${reviews}" class="review-item mb-4 pb-4 border-bottom">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <h6 class="mb-1" th:text="${review.user.firstName + ' ' + review.user.lastName}"></h6>
+                                        <small class="text-muted" th:text="${review.reviewDate}"></small>
+                                    </div>
+                                    <div class="text-warning">
+                                        <span th:each="i : ${#numbers.sequence(1, 5)}">
+                                            <i th:class="${i <= review.rating} ? 'fas fa-star' : 'far fa-star'"></i>
+                                        </span>
+                                    </div>
+                                </div>
+                                <p class="mb-0" th:text="${review.comment}"></p>
                             </div>
                         </div>
                     </div>

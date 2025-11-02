@@ -108,6 +108,16 @@ body {
     box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
 
+.btn-outline-primary {
+    border: 2px solid #667eea;
+    color: #667eea;
+}
+
+.btn-outline-primary:hover {
+    background: #667eea;
+    transform: translateY(-2px);
+}
+
 /* Cards */
 .card {
     border-radius: 12px;
@@ -148,6 +158,34 @@ footer {
     margin-top: auto;
 }
 
+/* Review Stars */
+.stars {
+    color: #ffc107;
+}
+
+.stars .far {
+    color: #ddd;
+}
+
+.stars .fas {
+    color: #ffc107;
+}
+
+/* Hotel Header */
+.hotel-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+/* Booking Header */
+.booking-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* Confirmation Header */
+.confirmation-header {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .hero-section {
@@ -161,6 +199,10 @@ footer {
     
     .hotel-card, .room-card {
         margin-bottom: 1.5rem;
+    }
+    
+    .feature-icon {
+        margin-bottom: 0.5rem;
     }
 }
 
@@ -219,4 +261,25 @@ a:focus, button:focus {
         border: 1px solid #000 !important;
         box-shadow: none !important;
     }
+}
+
+/* Review Items */
+.review-item {
+    border-bottom: 1px solid #e9ecef;
+}
+
+.review-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+/* Quick Search Card */
+.card.shadow {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Statistics Section */
+.bg-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
 }

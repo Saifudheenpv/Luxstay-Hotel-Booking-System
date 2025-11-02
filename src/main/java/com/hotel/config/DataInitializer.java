@@ -7,13 +7,19 @@ import com.hotel.repository.HotelRepository;
 import com.hotel.repository.RoomRepository;
 import com.hotel.repository.UserRepository;
 import com.hotel.util.SimplePasswordEncoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+
 import java.util.Arrays;
+import java.util.List;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
+    
+    private static final Logger logger = LoggerFactory.getLogger(DataInitializer.class);
     
     @Autowired
     private UserRepository userRepository;
@@ -29,8 +35,27 @@ public class DataInitializer implements CommandLineRunner {
     
     @Override
     public void run(String... args) throws Exception {
+        logger.info("=== DataInitializer started ===");
+        
         // Create sample users
+        createUsers();
+        
+        // Create sample hotels
+        createHotels();
+        
+        // Create rooms for hotels
+        createRoomsForHotels();
+        
+        logger.info("=== DataInitializer completed ===");
+        logger.info("Total users: {}", userRepository.count());
+        logger.info("Total hotels: {}", hotelRepository.count());
+        logger.info("Total rooms: {}", roomRepository.count());
+    }
+
+    private void createUsers() {
         if (userRepository.count() == 0) {
+            logger.info("Creating sample users...");
+            
             User admin = new User();
             admin.setUsername("admin");
             admin.setPassword(passwordEncoder.encode("admin123"));
@@ -50,101 +75,224 @@ public class DataInitializer implements CommandLineRunner {
             john.setPhone("+1987654321");
             john.setAddress("123 Main St, New York, NY");
             userRepository.save(john);
+
+            User sarah = new User();
+            sarah.setUsername("sarah_williams");
+            sarah.setPassword(passwordEncoder.encode("sarah123"));
+            sarah.setEmail("sarah.williams@email.com");
+            sarah.setFirstName("Sarah");
+            sarah.setLastName("Williams");
+            sarah.setPhone("+1654321890");
+            sarah.setAddress("456 Park Ave, Los Angeles, CA");
+            userRepository.save(sarah);
+            
+            logger.info("Created {} users", userRepository.count());
+        } else {
+            logger.info("Users already exist, skipping user creation");
         }
-        
-        // Create sample hotels
+    }
+
+    private void createHotels() {
         if (hotelRepository.count() == 0) {
-            // Hotel 1: Luxury Beach Resort
-            Hotel hotel1 = new Hotel();
-            hotel1.setName("Grand Marina Resort");
-            hotel1.setDescription("Experience luxury at its finest with our beachfront resort featuring world-class amenities, spa services, and gourmet dining.");
-            hotel1.setAddress("123 Ocean Drive, Miami Beach");
-            hotel1.setCity("Miami");
-            hotel1.setCountry("USA");
-            hotel1.setPhone("+1-305-123-4567");
-            hotel1.setEmail("info@grandmarina.com");
-            hotel1.setImageUrl("https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80");
-            hotel1.setRating(4.8);
-            hotel1.setStarRating(5);
-            hotelRepository.save(hotel1);
+            logger.info("Creating sample hotels...");
             
-            // Hotel 2: Business Hotel
-            Hotel hotel2 = new Hotel();
-            hotel2.setName("Metropolitan Suites");
-            hotel2.setDescription("Perfect for business travelers, our downtown hotel offers modern amenities, conference facilities, and easy access to business districts.");
-            hotel2.setAddress("456 Business Avenue, Manhattan");
-            hotel2.setCity("New York");
-            hotel2.setCountry("USA");
-            hotel2.setPhone("+1-212-987-6543");
-            hotel2.setEmail("reservations@metropolitansuites.com");
-            hotel2.setImageUrl("https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80");
-            hotel2.setRating(4.5);
-            hotel2.setStarRating(4);
-            hotelRepository.save(hotel2);
+            try {
+                // Hotel 1: Luxury Beach Resort
+                Hotel hotel1 = createHotel(
+                    "Grand Marina Resort",
+                    "Experience luxury at its finest with our beachfront resort featuring world-class amenities, spa services, and gourmet dining. Perfect for romantic getaways and family vacations.",
+                    "123 Ocean Drive, Miami Beach",
+                    "Miami", "USA", "+1-305-123-4567", "info@grandmarina.com",
+                    "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
+                    4.8, 5
+                );
+                
+                // Hotel 2: Business Hotel
+                Hotel hotel2 = createHotel(
+                    "Metropolitan Suites",
+                    "Perfect for business travelers, our downtown hotel offers modern amenities, conference facilities, and easy access to business districts. Free high-speed WiFi and business center.",
+                    "456 Business Avenue, Manhattan",
+                    "New York", "USA", "+1-212-987-6543", "reservations@metropolitansuites.com",
+                    "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
+                    4.5, 4
+                );
+                
+                // REPLACEMENT HOTEL: Luxury City Hotel instead of Alpine Mountain Lodge
+                Hotel hotel3 = createHotel(
+                    "Royal Plaza Hotel",
+                    "Experience urban luxury in the heart of the city with sophisticated accommodations, fine dining, and premium services for the discerning traveler.",
+                    "789 Central Boulevard, Chicago",
+                    "Chicago", "USA", "+1-312-555-7890", "reservations@royalplaza.com",
+                    "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
+                    4.6, 5
+                );
+
+                // Hotel 4: Urban Boutique Hotel
+                Hotel hotel4 = createHotel(
+                    "The Urban Boutique",
+                    "A stylish boutique hotel in the heart of the city featuring contemporary design, art exhibitions, and a rooftop bar with panoramic city views.",
+                    "321 Arts District, San Francisco",
+                    "San Francisco", "USA", "+1-415-555-0123", "hello@urbanboutique.com",
+                    "https://images.unsplash.com/photo-1586375300773-8384e3e4916f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
+                    4.6, 4
+                );
+
+                // Hotel 5: Luxury Desert Resort
+                Hotel hotel5 = createHotel(
+                    "Oasis Desert Resort",
+                    "An exclusive desert retreat featuring private villas, infinity pools, spa treatments, and stunning desert landscapes. Perfect for wellness retreats.",
+                    "555 Desert Oasis Road, Scottsdale",
+                    "Scottsdale", "USA", "+1-480-777-8888", "reservations@oasisresort.com",
+                    "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
+                    4.9, 5
+                );
+
+                // Hotel 6: Historic City Hotel
+                Hotel hotel6 = createHotel(
+                    "The Grand Heritage",
+                    "A beautifully restored historic hotel offering classic elegance with modern comforts. Located in the historic district with period architecture.",
+                    "888 Heritage Square, Boston",
+                    "Boston", "USA", "+1-617-444-5555", "info@grandheritage.com",
+                    "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
+                    4.7, 5
+                );
+
+                // Hotel 7: Beachfront Paradise
+                Hotel hotel7 = createHotel(
+                    "Paradise Beach Resort",
+                    "Direct beach access, water sports, multiple pools, and tropical gardens. Family-friendly resort with kids club and entertainment.",
+                    "777 Beach Boulevard, Honolulu",
+                    "Honolulu", "USA", "+1-808-222-3333", "aloha@paradiseresort.com",
+                    "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
+                    4.8, 4
+                );
+
+                // Hotel 8: Modern Business Hotel
+                Hotel hotel8 = createHotel(
+                    "Tech Tower Hotel",
+                    "Ultra-modern hotel designed for tech professionals featuring smart rooms, coworking spaces, and high-tech meeting facilities.",
+                    "444 Innovation Drive, Seattle",
+                    "Seattle", "USA", "+1-206-777-9999", "stay@techtower.com",
+                    "https://images.unsplash.com/photo-1564501049412-61c2a3083791?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
+                    4.4, 4
+                );
+
+                // Hotel 9: Romantic Getaway
+                Hotel hotel9 = createHotel(
+                    "Serenity Retreat",
+                    "Intimate adults-only resort offering privacy, luxury suites with private pools, and personalized service for romantic escapes.",
+                    "222 Lovers Lane, Napa Valley",
+                    "Napa", "USA", "+1-707-333-4444", "romance@serenityretreat.com",
+                    "https://images.unsplash.com/photo-1522798514-97ceb8c4f1c8?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
+                    4.9, 5
+                );
+
+                // Hotel 10: Family Resort
+                Hotel hotel10 = createHotel(
+                    "Family Fun Resort",
+                    "The ultimate family destination with water parks, kids activities, family suites, and all-inclusive dining options.",
+                    "999 Family Avenue, Orlando",
+                    "Orlando", "USA", "+1-407-888-0000", "fun@familyresort.com",
+                    "https://images.unsplash.com/photo-1571896349842-33c89424de2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
+                    4.6, 4
+                );
+
+                // Save all hotels
+                hotelRepository.saveAll(Arrays.asList(hotel1, hotel2, hotel3, hotel4, hotel5, 
+                                                     hotel6, hotel7, hotel8, hotel9, hotel10));
+                
+                logger.info("Successfully created {} hotels", hotelRepository.count());
+                
+            } catch (Exception e) {
+                logger.error("Error creating hotels: ", e);
+            }
+        } else {
+            logger.info("Hotels already exist, skipping hotel creation. Current count: {}", hotelRepository.count());
+        }
+    }
+
+    private Hotel createHotel(String name, String description, String address, String city, 
+                             String country, String phone, String email, String imageUrl, 
+                             Double rating, Integer starRating) {
+        Hotel hotel = new Hotel();
+        hotel.setName(name);
+        hotel.setDescription(description);
+        hotel.setAddress(address);
+        hotel.setCity(city);
+        hotel.setCountry(country);
+        hotel.setPhone(phone);
+        hotel.setEmail(email);
+        hotel.setImageUrl(imageUrl);
+        hotel.setRating(rating);
+        hotel.setStarRating(starRating);
+        return hotel;
+    }
+
+    private void createRoomsForHotels() {
+        if (roomRepository.count() == 0) {
+            logger.info("Creating rooms for hotels...");
             
-            // Hotel 3: Mountain Retreat
-            Hotel hotel3 = new Hotel();
-            hotel3.setName("Alpine Mountain Lodge");
-            hotel3.setDescription("Escape to nature in our cozy mountain lodge featuring breathtaking views, outdoor activities, and rustic luxury.");
-            hotel3.setAddress("789 Mountain Road, Aspen");
-            hotel3.setCity("Aspen");
-            hotel3.setCountry("USA");
-            hotel3.setPhone("+1-970-456-7890");
-            hotel3.setEmail("stay@alpinelodge.com");
-            hotel3.setImageUrl("https://images.unsplash.com/photo-1596394516093-9ba7a5f3b5a1?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80");
-            hotel3.setRating(4.7);
-            hotel3.setStarRating(4);
-            hotelRepository.save(hotel3);
+            try {
+                List<Hotel> hotels = hotelRepository.findAll();
+                logger.info("Found {} hotels to create rooms for", hotels.size());
+                
+                for (Hotel hotel : hotels) {
+                    logger.info("Creating rooms for hotel: {}", hotel.getName());
+                    
+                    // Create simple rooms first to avoid complex logic errors
+                    createSimpleRooms(hotel);
+                }
+                
+                logger.info("Successfully created rooms for all hotels");
+                
+            } catch (Exception e) {
+                logger.error("Error creating rooms: ", e);
+            }
+        } else {
+            logger.info("Rooms already exist, skipping room creation");
+        }
+    }
+
+    private void createSimpleRooms(Hotel hotel) {
+        try {
+            // Create 2-3 simple rooms per hotel
+            Room room1 = new Room();
+            room1.setRoomNumber("101");
+            room1.setType("Standard Room");
+            room1.setPrice(199.00);
+            room1.setDescription("Comfortable standard room with all basic amenities");
+            room1.setCapacity(2);
+            room1.setAvailable(true);
+            room1.setAmenities("WiFi,TV,AC");
+            room1.setImageUrl("https://images.unsplash.com/photo-1631049307264-da0ec9d70304?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80");
+            room1.setHotel(hotel);
             
-            // Create rooms for hotel1
-            Room room1 = new Room("101", "Deluxe Ocean View", 299.00, 
-                "Spacious room with king bed and private balcony overlooking the ocean", 
-                2, true, "WiFi,TV,Minibar,AC,Ocean View,Balcony", 
-                "https://images.unsplash.com/photo-1611892440504-42a792e24d32?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", hotel1);
+            Room room2 = new Room();
+            room2.setRoomNumber("102");
+            room2.setType("Deluxe Room");
+            room2.setPrice(299.00);
+            room2.setDescription("Spacious deluxe room with premium amenities");
+            room2.setCapacity(2);
+            room2.setAvailable(true);
+            room2.setAmenities("WiFi,TV,Minibar,AC");
+            room2.setImageUrl("https://images.unsplash.com/photo-1590490360182-c33d57733427?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80");
+            room2.setHotel(hotel);
             
-            Room room2 = new Room("102", "Premium Suite", 499.00, 
-                "Luxurious suite with separate living area and jacuzzi", 
-                3, true, "WiFi,TV,Minibar,AC,Jacuzzi,Living Room", 
-                "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", hotel1);
+            Room room3 = new Room();
+            room3.setRoomNumber("201");
+            room3.setType("Suite");
+            room3.setPrice(499.00);
+            room3.setDescription("Luxurious suite with separate living area");
+            room3.setCapacity(3);
+            room3.setAvailable(true);
+            room3.setAmenities("WiFi,TV,Minibar,AC,Living Room");
+            room3.setImageUrl("https://images.unsplash.com/photo-1566665797739-1674de7a421a?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80");
+            room3.setHotel(hotel);
             
-            Room room3 = new Room("201", "Standard Room", 199.00, 
-                "Comfortable room with queen bed and garden view", 
-                2, true, "WiFi,TV,AC", 
-                "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", hotel1);
+            roomRepository.saveAll(Arrays.asList(room1, room2, room3));
             
-            // Create rooms for hotel2
-            Room room4 = new Room("301", "Executive Room", 349.00, 
-                "Modern room designed for business travelers with work desk", 
-                2, true, "WiFi,TV,Minibar,AC,Work Desk", 
-                "https://images.unsplash.com/photo-1566665797739-1674de7a421a?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", hotel2);
-            
-            Room room5 = new Room("302", "Conference Suite", 599.00, 
-                "Large suite with meeting area and conference facilities", 
-                4, true, "WiFi,TV,Minibar,AC,Conference Table", 
-                "https://images.unsplash.com/photo-1590490360182-c33d57733427?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", hotel2);
-            
-            Room room6 = new Room("303", "Standard Business", 279.00, 
-                "Comfortable room with all essential business amenities", 
-                2, true, "WiFi,TV,AC,Work Desk", 
-                "https://images.unsplash.com/photo-1559599189-fe84dea4eb79?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", hotel2);
-            
-            // Create rooms for hotel3
-            Room room7 = new Room("401", "Mountain View Suite", 399.00, 
-                "Cozy suite with fireplace and stunning mountain views", 
-                2, true, "WiFi,TV,Fireplace,AC,Mountain View,Balcony", 
-                "https://images.unsplash.com/photo-1595526051245-4506e0005bd0?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", hotel3);
-            
-            Room room8 = new Room("402", "Family Cabin", 459.00, 
-                "Spacious cabin perfect for families with separate bedrooms", 
-                4, true, "WiFi,TV,Fireplace,AC,Kitchenette", 
-                "https://images.unsplash.com/photo-1445019980597-93fa8acb246c?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", hotel3);
-            
-            Room room9 = new Room("403", "Standard Mountain Room", 259.00, 
-                "Comfortable room with all essential amenities", 
-                2, true, "WiFi,TV,AC", 
-                "https://images.unsplash.com/photo-1590490360182-c33d57733427?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", hotel3);
-            
-            roomRepository.saveAll(Arrays.asList(room1, room2, room3, room4, room5, room6, room7, room8, room9));
+        } catch (Exception e) {
+            logger.error("Error creating rooms for hotel {}: {}", hotel.getName(), e.getMessage());
         }
     }
 }

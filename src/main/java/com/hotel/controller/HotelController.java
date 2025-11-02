@@ -2,6 +2,7 @@ package com.hotel.controller;
 
 import com.hotel.model.User;
 import com.hotel.service.HotelService;
+import com.hotel.service.ReviewService;
 import com.hotel.service.RoomService;
 import com.hotel.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +25,9 @@ public class HotelController {
     
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private ReviewService reviewService;
     
     @GetMapping
     public String getAllHotels(Model model, HttpSession session) {
@@ -46,6 +50,9 @@ public class HotelController {
         hotelService.getHotelById(id).ifPresent(hotel -> {
             model.addAttribute("hotel", hotel);
             model.addAttribute("rooms", roomService.getAvailableRoomsByHotelId(id));
+            model.addAttribute("reviews", reviewService.getReviewsByHotelId(id));
+            model.addAttribute("averageRating", reviewService.getAverageRatingForHotel(id));
+            model.addAttribute("reviewCount", reviewService.getReviewCountForHotel(id));
         });
         
         Long userId = (Long) session.getAttribute("userId");

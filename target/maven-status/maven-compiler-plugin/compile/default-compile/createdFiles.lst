@@ -6,8 +6,11 @@ com/hotel/model/Booking.class
 com/hotel/model/Hotel.class
 com/hotel/config/DataInitializer.class
 com/hotel/service/UserService.class
+com/hotel/service/ReviewService.class
 com/hotel/repository/HotelRepository.class
 com/hotel/controller/AuthController.class
+com/hotel/controller/ReviewController.class
+com/hotel/repository/ReviewRepository.class
 com/hotel/repository/RoomRepository.class
 com/hotel/util/SimplePasswordEncoder.class
 com/hotel/repository/UserRepository.class
@@ -16,6 +19,7 @@ com/hotel/controller/BookingController.class
 com/hotel/service/BookingService.class
 com/hotel/config/GlobalExceptionHandler.class
 com/hotel/model/User.class
+com/hotel/model/Review.class
 com/hotel/HotelBookingApplication.class
 com/hotel/controller/HotelController.class
 com/hotel/controller/HomeController.class
