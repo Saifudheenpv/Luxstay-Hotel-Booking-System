@@ -13,7 +13,6 @@ pipeline {
     environment {
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds')
         SONAR_TOKEN = credentials('sonar-token')
-        NEXUS_CREDENTIALS = credentials('nexus-creds')
         
         REGISTRY = 'saifudheenpv'
         APP_NAME = 'hotel-booking-system'
@@ -22,6 +21,7 @@ pipeline {
         
         K8S_NAMESPACE = 'hotel-booking'
         TEST_PROFILE = 'test'
+        CLUSTER_IP = '13.203.79.80'
     }
     
     options {
@@ -29,6 +29,7 @@ pipeline {
         timeout(time: 30, unit: 'MINUTES')
         disableConcurrentBuilds()
         skipDefaultCheckout(false)
+        timestamps()
     }
     
     stages {
@@ -36,8 +37,8 @@ pipeline {
             steps {
                 cleanWs()
                 sh '''
-                    echo "Starting Fresh Build"
-                    pwd
+                    echo "🚀 Starting Fresh Build - Hotel Booking System"
+                    echo "Build Number: ${BUILD_NUMBER}"
                 '''
             }
         }
@@ -46,8 +47,9 @@ pipeline {
             steps {
                 checkout scm
                 sh '''
-                    echo "Git Information"
+                    echo "📦 Git Repository Information"
                     git log -1 --oneline
+                    echo "Branch: ${GIT_BRANCH}"
                 '''
             }
         }
@@ -55,10 +57,8 @@ pipeline {
         stage('Clean Docker Environment') {
             steps {
                 sh '''
-                    echo "Cleaning Docker Environment"
-                    docker rm -f $(docker ps -aq) 2>/dev/null || echo "No containers to remove"
-                    docker image prune -f
-                    echo "Docker environment cleaned"
+                    echo "🧹 Cleaning Docker Environment"
+                    docker system prune -f --volumes || echo "Docker cleanup completed"
                 '''
             }
         }
@@ -66,14 +66,14 @@ pipeline {
         stage('Compile & Test') {
             steps {
                 sh """
-                    echo "Compiling Source Code"
+                    echo "🔨 Compiling Source Code"
                     mvn clean compile -q
-                    echo "Compilation successful"
+                    echo "✅ Compilation successful"
                     
-                    echo "Running Unit Tests"
+                    echo "🧪 Running Unit Tests"
                     mvn test -Dspring.profiles.active=${TEST_PROFILE}
                     
-                    echo "Generating Reports"
+                    echo "📊 Generating Test Reports"
                     mvn jacoco:report
                 """
             }
@@ -81,6 +81,14 @@ pipeline {
                 always {
                     junit 'target/surefire-reports/**/*.xml'
                     archiveArtifacts 'target/site/jacoco/jacoco.xml'
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'target/site/jacoco',
+                        reportFiles: 'index.html',
+                        reportName: 'JaCoCo Code Coverage'
+                    ])
                 }
             }
         }
@@ -88,8 +96,8 @@ pipeline {
         stage('Security Scan - Code') {
             steps {
                 sh '''
-                    echo "Running Security Scan"
-                    trivy fs . --severity HIGH,CRITICAL --exit-code 0 --format table || echo "Security scan completed"
+                    echo "🔒 Running Security Scan on Source Code"
+                    trivy fs . --severity HIGH,CRITICAL --exit-code 0 --format table --no-progress
                 '''
             }
         }
@@ -103,7 +111,8 @@ pipeline {
                         -Dsonar.projectName='Hotel Booking System' \
                         -Dsonar.host.url=${SONAR_URL} \
                         -Dsonar.login=${SONAR_TOKEN} \
-                        -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+                        -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+                        -Dsonar.java.coveragePlugin=jacoco
                     """
                 }
             }
@@ -120,9 +129,9 @@ pipeline {
         stage('Build & Package') {
             steps {
                 sh '''
-                    echo "Building Application"
-                    mvn clean package -DskipTests
-                    echo "Generated Artifacts"
+                    echo "📦 Building Application Package"
+                    mvn clean package -DskipTests -q
+                    echo "✅ Generated Artifacts:"
                     ls -la target/*.jar
                 '''
                 archiveArtifacts 'target/*.jar'
@@ -132,9 +141,9 @@ pipeline {
         stage('Docker Build') {
             steps {
                 script {
-                    echo "Building Docker Image"
+                    echo "🐳 Building Docker Image"
                     docker.build("${REGISTRY}/${APP_NAME}:${VERSION}")
-                    echo "Docker image built: ${REGISTRY}/${APP_NAME}:${VERSION}"
+                    echo "✅ Docker image built: ${REGISTRY}/${APP_NAME}:${VERSION}"
                 }
             }
         }
@@ -142,7 +151,8 @@ pipeline {
         stage('Security Scan - Docker Image') {
             steps {
                 sh """
-                    trivy image --exit-code 0 --severity HIGH,CRITICAL ${REGISTRY}/${APP_NAME}:${VERSION} || echo "Docker security scan completed"
+                    echo "🔒 Scanning Docker Image for Vulnerabilities"
+                    trivy image --exit-code 0 --severity HIGH,CRITICAL --no-progress ${REGISTRY}/${APP_NAME}:${VERSION}
                 """
             }
         }
@@ -150,119 +160,147 @@ pipeline {
         stage('Docker Push') {
             steps {
                 script {
-                    echo "Pushing Docker Image"
+                    echo "📤 Pushing Docker Image to Registry"
                     docker.withRegistry('', 'dockerhub-creds') {
                         docker.image("${REGISTRY}/${APP_NAME}:${VERSION}").push()
                     }
-                    echo "Docker image pushed: ${REGISTRY}/${APP_NAME}:${VERSION}"
+                    echo "✅ Docker image pushed: ${REGISTRY}/${APP_NAME}:${VERSION}"
+                    
+                    // Also tag as latest for rollback capability
+                    docker.withRegistry('', 'dockerhub-creds') {
+                        docker.image("${REGISTRY}/${APP_NAME}:${VERSION}").push('latest')
+                    }
                 }
             }
         }
         
-        stage('Blue-Green Deployment') {
+        stage('Infrastructure Setup') {
             steps {
                 script {
                     withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
                         sh """
                             export KUBECONFIG=\${KUBECONFIG_FILE}
                             
-                            echo "Starting Blue-Green Deployment"
+                            echo "🏗️ Setting up Kubernetes Infrastructure"
                             
-                            # Create namespace if not exists
+                            # Create namespace
                             kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
                             
-                            # Deploy MySQL infrastructure
-                            echo "Setting up MySQL Database"
+                            # Setup MySQL database
+                            echo "🗄️ Deploying MySQL Database"
                             kubectl apply -f k8s/mysql-secret.yaml -n ${K8S_NAMESPACE}
                             kubectl apply -f k8s/mysql-configmap.yaml -n ${K8S_NAMESPACE}
                             kubectl apply -f k8s/mysql-pvc.yaml -n ${K8S_NAMESPACE}
                             kubectl apply -f k8s/mysql-deployment.yaml -n ${K8S_NAMESPACE}
                             kubectl apply -f k8s/mysql-service.yaml -n ${K8S_NAMESPACE}
                             
-                            # Wait for MySQL
+                            # Wait for MySQL to be ready
+                            echo "⏳ Waiting for MySQL to be ready..."
                             kubectl wait --for=condition=ready pod -l app=mysql -n ${K8S_NAMESPACE} --timeout=300s
-                            
-                            # Determine current active deployment
-                            echo "Analyzing Current Deployment State"
-                            BLUE_READY=\$(kubectl get deployment hotel-booking-system-blue -n ${K8S_NAMESPACE} --ignore-not-found -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-                            GREEN_READY=\$(kubectl get deployment hotel-booking-system-green -n ${K8S_NAMESPACE} --ignore-not-found -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-                            
-                            echo "Blue ready replicas: \$BLUE_READY"
-                            echo "Green ready replicas: \$GREEN_READY"
-                            
-                            if [ "\$BLUE_READY" -eq "0" ] && [ "\$GREEN_READY" -eq "0" ]; then
-                                TARGET_DEPLOYMENT="blue"
-                                OLD_DEPLOYMENT="green"
-                                echo "First deployment - using BLUE"
-                            elif [ "\$BLUE_READY" -gt "0" ]; then
-                                TARGET_DEPLOYMENT="green"
-                                OLD_DEPLOYMENT="blue"
-                                echo "Blue is active - deploying to GREEN"
-                            else
-                                TARGET_DEPLOYMENT="blue"
-                                OLD_DEPLOYMENT="green"
-                                echo "Green is active - deploying to BLUE"
-                            fi
-                            
-                            echo "TARGET_DEPLOYMENT=\$TARGET_DEPLOYMENT" > deployment.env
-                            echo "OLD_DEPLOYMENT=\$OLD_DEPLOYMENT" >> deployment.env
-                            echo "Deployment target determined: \$TARGET_DEPLOYMENT"
-                        """
-                        
-                        load 'deployment.env'
-                        
-                        sh """
-                            export KUBECONFIG=\${KUBECONFIG_FILE}
-                            source deployment.env
-                            
-                            echo "Deploying Version ${VERSION} to \${TARGET_DEPLOYMENT}"
-                            
-                            # Update deployment with new image
-                            sed -i "s|image:.*|image: ${REGISTRY}/${APP_NAME}:${VERSION}|g" k8s/app-deployment-\${TARGET_DEPLOYMENT}.yaml
-                            
-                            # Apply target deployment and service
-                            kubectl apply -f k8s/app-deployment-\${TARGET_DEPLOYMENT}.yaml -n ${K8S_NAMESPACE}
-                            kubectl apply -f k8s/app-service-\${TARGET_DEPLOYMENT}.yaml -n ${K8S_NAMESPACE}
-                            
-                            # Wait for target deployment
-                            echo "Waiting for \${TARGET_DEPLOYMENT} rollout"
-                            kubectl rollout status deployment/hotel-booking-system-\${TARGET_DEPLOYMENT} -n ${K8S_NAMESPACE} --timeout=300s
-                            
-                            echo "\${TARGET_DEPLOYMENT} deployment completed"
+                            echo "✅ MySQL is ready"
                         """
                     }
                 }
             }
         }
         
-        stage('Health Check New Deployment') {
+        stage('Blue-Green Deployment Strategy') {
             steps {
                 script {
                     withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
-                        load 'deployment.env'
+                        // Determine deployment strategy
+                        def deploymentInfo = sh(
+                            script: """
+                                export KUBECONFIG=\${KUBECONFIG_FILE}
+                                
+                                echo "🎯 Analyzing Deployment State"
+                                BLUE_READY=\$(kubectl get deployment hotel-booking-system-blue -n ${K8S_NAMESPACE} --ignore-not-found -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+                                GREEN_READY=\$(kubectl get deployment hotel-booking-system-green -n ${K8S_NAMESPACE} --ignore-not-found -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+                                
+                                echo "🔵 Blue replicas: \$BLUE_READY"
+                                echo "🟢 Green replicas: \$GREEN_READY"
+                                
+                                if [ "\$BLUE_READY" -eq "0" ] && [ "\$GREEN_READY" -eq "0" ]; then
+                                    echo "blue:green:first"
+                                elif [ "\$BLUE_READY" -gt "0" ]; then
+                                    echo "green:blue:switch"
+                                else
+                                    echo "blue:green:switch"
+                                fi
+                            """,
+                            returnStdout: true
+                        ).trim()
                         
+                        def (TARGET_DEPLOYMENT, OLD_DEPLOYMENT, DEPLOYMENT_TYPE) = deploymentInfo.tokenize(':')
+                        
+                        env.TARGET_DEPLOYMENT = TARGET_DEPLOYMENT
+                        env.OLD_DEPLOYMENT = OLD_DEPLOYMENT
+                        
+                        echo "🎯 Deployment Strategy: ${DEPLOYMENT_TYPE}"
+                        echo "🎯 Target: ${TARGET_DEPLOYMENT}"
+                        echo "🎯 Old: ${OLD_DEPLOYMENT}"
+                        
+                        // Deploy to target environment
                         sh """
                             export KUBECONFIG=\${KUBECONFIG_FILE}
-                            source deployment.env
                             
-                            echo "Health Checking \${TARGET_DEPLOYMENT} Deployment"
+                            echo "🚀 Deploying Version ${VERSION} to ${TARGET_DEPLOYMENT}"
                             
-                            POD_NAME=\$(kubectl get pods -n ${K8S_NAMESPACE} -l app=hotel-booking-system,version=\${TARGET_DEPLOYMENT} -o jsonpath='{.items[0].metadata.name}')
+                            # Update deployment with new image
+                            sed -i "s|image:.*|image: ${REGISTRY}/${APP_NAME}:${VERSION}|g" k8s/app-deployment-${TARGET_DEPLOYMENT}.yaml
+                            
+                            # Apply target deployment
+                            kubectl apply -f k8s/app-deployment-${TARGET_DEPLOYMENT}.yaml -n ${K8S_NAMESPACE}
+                            kubectl apply -f k8s/app-service-${TARGET_DEPLOYMENT}.yaml -n ${K8S_NAMESPACE}
+                            
+                            # Wait for rollout
+                            echo "⏳ Waiting for ${TARGET_DEPLOYMENT} deployment to complete..."
+                            kubectl rollout status deployment/hotel-booking-system-${TARGET_DEPLOYMENT} -n ${K8S_NAMESPACE} --timeout=300s
+                            
+                            echo "✅ ${TARGET_DEPLOYMENT} deployment completed successfully"
+                        """
+                    }
+                }
+            }
+        }
+        
+        stage('Health Check & Validation') {
+            steps {
+                script {
+                    withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+                        sh """
+                            export KUBECONFIG=\${KUBECONFIG_FILE}
+                            
+                            echo "🏥 Performing Health Checks on ${env.TARGET_DEPLOYMENT}"
+                            
+                            # Get pod name
+                            POD_NAME=\$(kubectl get pods -n ${K8S_NAMESPACE} -l app=hotel-booking-system,version=${env.TARGET_DEPLOYMENT} -o jsonpath='{.items[0].metadata.name}')
                             
                             if [ -n "\$POD_NAME" ]; then
-                                echo "Testing pod: \$POD_NAME"
+                                echo "🔍 Testing pod: \$POD_NAME"
                                 
-                                for i in 1 2 3 4 5 6 7 8 9 10; do
-                                    if kubectl exec -n ${K8S_NAMESPACE} "\$POD_NAME" -- wget -q -O - http://localhost:8080/actuator/health > /dev/null; then
-                                        echo "\${TARGET_DEPLOYMENT} health check PASSED"
+                                # Health check with retry logic
+                                for i in {1..12}; do
+                                    if kubectl exec -n ${K8S_NAMESPACE} "\$POD_NAME" -- curl -f -s http://localhost:8080/actuator/health > /dev/null; then
+                                        echo "✅ ${env.TARGET_DEPLOYMENT} health check PASSED on attempt \$i"
                                         break
                                     else
-                                        echo "Attempt \$i: \${TARGET_DEPLOYMENT} not ready yet"
+                                        echo "⏳ Attempt \$i: ${env.TARGET_DEPLOYMENT} not ready yet, waiting 10s..."
                                         sleep 10
                                     fi
+                                    
+                                    if [ \$i -eq 12 ]; then
+                                        echo "❌ Health check FAILED after 120 seconds"
+                                        exit 1
+                                    fi
                                 done
+                                
+                                # Additional application-specific checks
+                                echo "🔍 Performing application-specific health checks..."
+                                kubectl exec -n ${K8S_NAMESPACE} "\$POD_NAME" -- curl -s http://localhost:8080/actuator/info | grep -q "application" && echo "✅ Application info endpoint working"
+                                
                             else
-                                echo "No pods found for \${TARGET_DEPLOYMENT}"
+                                echo "❌ No pods found for ${env.TARGET_DEPLOYMENT}"
                                 exit 1
                             fi
                         """
@@ -271,31 +309,28 @@ pipeline {
             }
         }
         
-        stage('Switch Traffic') {
+        stage('Traffic Switch') {
             steps {
                 script {
                     withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
-                        load 'deployment.env'
-                        
                         sh """
                             export KUBECONFIG=\${KUBECONFIG_FILE}
-                            source deployment.env
                             
-                            echo "Switching Traffic to \${TARGET_DEPLOYMENT}"
+                            echo "🔄 Switching Traffic to ${env.TARGET_DEPLOYMENT}"
                             
-                            # Update main service
+                            # Update main service to point to target deployment
                             kubectl apply -f k8s/app-service.yaml -n ${K8S_NAMESPACE}
                             
-                            # Apply ingress
-                            kubectl apply -f k8s/app-ingress.yaml -n ${K8S_NAMESPACE}
+                            # Apply ingress if exists
+                            kubectl apply -f k8s/app-ingress.yaml -n ${K8S_NAMESPACE} 2>/dev/null || echo "No ingress configuration found"
                             
-                            echo "Traffic switched to \${TARGET_DEPLOYMENT}"
+                            echo "✅ Traffic successfully switched to ${env.TARGET_DEPLOYMENT}"
                             
                             # Scale down old deployment
-                            echo "Scaling down \${OLD_DEPLOYMENT}"
-                            kubectl scale deployment/hotel-booking-system-\${OLD_DEPLOYMENT} -n ${K8S_NAMESPACE} --replicas=0
+                            echo "📉 Scaling down previous deployment (${env.OLD_DEPLOYMENT})"
+                            kubectl scale deployment/hotel-booking-system-${env.OLD_DEPLOYMENT} -n ${K8S_NAMESPACE} --replicas=0
                             
-                            echo "\${OLD_DEPLOYMENT} scaled down"
+                            echo "✅ ${env.OLD_DEPLOYMENT} scaled down to zero replicas"
                         """
                     }
                 }
@@ -309,35 +344,84 @@ pipeline {
                         sh """
                             export KUBECONFIG=\${KUBECONFIG_FILE}
                             
-                            echo "Generating Deployment URLs"
+                            echo "🎉 FINAL DEPLOYMENT VERIFICATION"
+                            echo "=========================================="
                             
-                            # Get NodePort
+                            # Get all access URLs
                             NODE_PORT=\$(kubectl get svc hotel-booking-system -n ${K8S_NAMESPACE} -o jsonpath='{.spec.ports[0].nodePort}')
-                            
-                            # Use known public IP
-                            NODE_IP="13.203.79.80"
+                            ALB_URL=\$(kubectl get ingress -n ${K8S_NAMESPACE} -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "Not configured")
+                            LB_URL=\$(kubectl get svc -n ${K8S_NAMESPACE} -o jsonpath='{.items[?(@.spec.type=="LoadBalancer")].status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "Not configured")
                             
                             echo ""
-                            echo "DEPLOYMENT URLs - ACCESS YOUR APPLICATION"
-                            echo ""
+                            echo "🌐 APPLICATION ACCESS URLs:"
+                            echo "------------------------------------------"
                             
-                            if [ -n "\$NODE_PORT" ]; then
-                                echo "PRIMARY URL (NodePort):"
-                                echo "http://\${NODE_IP}:\${NODE_PORT}/"
-                                echo "Health: http://\${NODE_IP}:\${NODE_PORT}/actuator/health"
-                                echo "DEPLOYMENT_URL=http://\${NODE_IP}:\${NODE_PORT}/" > deployment-url.env
+                            if [ "\$NODE_PORT" != "" ]; then
+                                echo "🔗 NODEPORT URL:"
+                                echo "   http://${CLUSTER_IP}:\${NODE_PORT}/"
+                                echo "   Health: http://${CLUSTER_IP}:\${NODE_PORT}/actuator/health"
+                                echo "   DEPLOYMENT_URL=http://${CLUSTER_IP}:\${NODE_PORT}/" > deployment-url.env
+                            fi
+                            
+                            if [ "\$ALB_URL" != "Not configured" ] && [ "\$ALB_URL" != "" ]; then
+                                echo "🚀 ALB URL:"
+                                echo "   http://\${ALB_URL}/"
+                                echo "   ALB_URL=http://\${ALB_URL}/" >> deployment-url.env
+                            fi
+                            
+                            if [ "\$LB_URL" != "Not configured" ] && [ "\$LB_URL" != "" ]; then
+                                echo "⚡ LOAD BALANCER URL:"
+                                echo "   http://\${LB_URL}/"
+                                echo "   LB_URL=http://\${LB_URL}/" >> deployment-url.env
                             fi
                             
                             echo ""
-                            echo "Deployment Status:"
-                            kubectl get deployments -n ${K8S_NAMESPACE}
-                            kubectl get pods -n ${K8S_NAMESPACE}
+                            echo "📊 DEPLOYMENT STATUS:"
+                            echo "------------------------------------------"
+                            kubectl get deployments -n ${K8S_NAMESPACE} -o wide
+                            
+                            echo ""
+                            echo "🔧 SERVICES:"
+                            echo "------------------------------------------"
+                            kubectl get svc -n ${K8S_NAMESPACE} -o wide
+                            
+                            echo ""
+                            echo "🐳 PODS:"
+                            echo "------------------------------------------"
+                            kubectl get pods -n ${K8S_NAMESPACE} -o wide --show-labels
+                            
+                            echo ""
+                            echo "📈 INGRESS (if configured):"
+                            echo "------------------------------------------"
+                            kubectl get ingress -n ${K8S_NAMESPACE} 2>/dev/null || echo "No ingress configured"
+                            
+                            echo ""
+                            echo "💾 STORAGE:"
+                            echo "------------------------------------------"
+                            kubectl get pvc -n ${K8S_NAMESPACE}
+                            
+                            echo ""
+                            echo "✅ DEPLOYMENT SUMMARY:"
+                            echo "------------------------------------------"
+                            echo "Application: ${APP_NAME}"
+                            echo "Version: ${VERSION}"
+                            echo "Active Deployment: ${env.TARGET_DEPLOYMENT}"
+                            echo "Docker Image: ${REGISTRY}/${APP_NAME}:${VERSION}"
+                            echo "Namespace: ${K8S_NAMESPACE}"
                         """
                         
+                        // Load and display URLs
                         if (fileExists('deployment-url.env')) {
                             load 'deployment-url.env'
-                            echo "Application successfully deployed!"
-                            echo "Access URL: ${DEPLOYMENT_URL}"
+                            echo "🎊 DEPLOYMENT COMPLETED SUCCESSFULLY!"
+                            echo "🔗 Primary Access URL: ${DEPLOYMENT_URL}"
+                            
+                            if (env.ALB_URL) {
+                                echo "🌐 ALB URL: ${ALB_URL}"
+                            }
+                            if (env.LB_URL) {
+                                echo "⚡ Load Balancer URL: ${LB_URL}"
+                            }
                         }
                     }
                 }
@@ -347,41 +431,83 @@ pipeline {
     
     post {
         always {
-            sh 'echo "Build Process Completed"'
+            sh '''
+                echo "🏁 Build Process Completed"
+                echo "Build Status: ${currentBuild.result}"
+            '''
             cleanWs()
         }
         success {
-            echo "Blue-Green Deployment completed successfully!"
+            echo "🎉 Blue-Green Deployment completed successfully!"
             script {
-                currentBuild.description = "SUCCESS - Build ${VERSION}"
+                currentBuild.description = "SUCCESS - v${VERSION} (${env.TARGET_DEPLOYMENT})"
                 
+                // Prepare deployment info for notification
                 def deploymentUrl = "Check Jenkins console for URLs"
                 if (fileExists('deployment-url.env')) {
                     load 'deployment-url.env'
                     deploymentUrl = DEPLOYMENT_URL
                 }
                 
+                // Extended email notification
                 emailext (
                     subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                     body: """
-                    Blue-Green Deployment Completed Successfully!
+                    🎉 BLUE-GREEN DEPLOYMENT COMPLETED SUCCESSFULLY!
                     
-                    Application: ${APP_NAME}
-                    Version: ${VERSION}
+                    📋 Deployment Details:
+                    • Application: ${APP_NAME}
+                    • Version: ${VERSION}
+                    • Environment: ${env.TARGET_DEPLOYMENT}
+                    • Docker Image: ${REGISTRY}/${APP_NAME}:${VERSION}
+                    • Namespace: ${K8S_NAMESPACE}
                     
-                    DEPLOYMENT URL: ${deploymentUrl}
+                    🌐 Access URLs:
+                    • Primary URL: ${deploymentUrl}
+                    ${env.ALB_URL ? "• ALB URL: " + ALB_URL : ""}
+                    ${env.LB_URL ? "• Load Balancer: " + LB_URL : ""}
                     
-                    Build URL: ${env.BUILD_URL}
+                    📊 Build Information:
+                    • Build URL: ${env.BUILD_URL}
+                    • Build Number: ${env.BUILD_NUMBER}
+                    • Git Branch: ${env.GIT_BRANCH}
+                    
+                    The application has been deployed using Blue-Green strategy and all health checks have passed.
                     """,
-                    to: "mesaifudheenpv@gmail.com"
+                    to: "mesaifudheenpv@gmail.com",
+                    attachLog: false
                 )
             }
         }
         failure {
-            echo "Pipeline failed!"
+            echo "❌ Pipeline failed!"
             script {
-                currentBuild.description = "FAILED - Build ${VERSION}"
+                currentBuild.description = "FAILED - v${VERSION}"
+                
+                // Failure notification
+                emailext (
+                    subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: """
+                    ❌ DEPLOYMENT FAILED!
+                    
+                    Application: ${APP_NAME}
+                    Version: ${VERSION}
+                    
+                    Please check the Jenkins build logs for details:
+                    ${env.BUILD_URL}
+                    
+                    Immediate attention required.
+                    """,
+                    to: "mesaifudheenpv@gmail.com",
+                    attachLog: true
+                )
             }
+        }
+        unstable {
+            echo "⚠️ Pipeline unstable - check test results or quality gate"
+        }
+        changed {
+            echo "🔄 Pipeline status changed: ${currentBuild.result}"
         }
     }
 }
