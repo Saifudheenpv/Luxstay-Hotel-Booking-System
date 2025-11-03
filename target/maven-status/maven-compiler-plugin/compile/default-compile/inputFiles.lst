@@ -9,6 +9,7 @@
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/model/Hotel.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/controller/HotelController.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/util/DatabaseHealthCheck.java
+/home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/controller/HealthController.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/config/ThymeleafConfig.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/repository/UserRepository.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/model/User.java
