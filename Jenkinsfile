@@ -18,7 +18,7 @@ pipeline {
         APP_NAME = 'hotel-booking-system'
         VERSION = "${env.BUILD_NUMBER}"
         NEXUS_URL = 'http://13.201.212.39:8081'
-        SONAR_URL = 'http://13.201.35.176:9000'
+        SONAR_URL = 'http://13.233.38.12:9000'
         
         // Kubernetes Configuration
         K8S_NAMESPACE = 'hotel-booking'
