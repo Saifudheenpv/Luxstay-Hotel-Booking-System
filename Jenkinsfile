@@ -401,19 +401,20 @@ pipeline {
                                 echo "   http://${CLUSTER_IP}:\${NODE_PORT}/"
                                 echo "   Health: http://${CLUSTER_IP}:\${NODE_PORT}/actuator/health"
                                 echo "   Swagger: http://${CLUSTER_IP}:\${NODE_PORT}/swagger-ui.html"
-                                echo "DEPLOYMENT_URL=http://${CLUSTER_IP}:\${NODE_PORT}/" > deployment-url.env
+                                # Write URLs to file without Groovy syntax
+                                echo "NODEPORT_URL=http://${CLUSTER_IP}:\${NODE_PORT}/" > deployment-urls.txt
                             fi
                             
                             if [ "\$ALB_URL" != "Not configured" ] && [ "\$ALB_URL" != "" ]; then
                                 echo "🚀 ALB URL:"
                                 echo "   http://\${ALB_URL}/"
-                                echo "ALB_URL=http://\${ALB_URL}/" >> deployment-url.env
+                                echo "ALB_URL=http://\${ALB_URL}/" >> deployment-urls.txt
                             fi
                             
                             if [ "\$LB_URL" != "Not configured" ] && [ "\$LB_URL" != "" ]; then
                                 echo "⚡ LOAD BALANCER URL:"
                                 echo "   http://\${LB_URL}/"
-                                echo "LB_URL=http://\${LB_URL}/" >> deployment-url.env
+                                echo "LB_URL=http://\${LB_URL}/" >> deployment-urls.txt
                             fi
                             
                             echo ""
@@ -450,20 +451,36 @@ pipeline {
                             echo "Docker Image: ${REGISTRY}/${APP_NAME}:${VERSION}"
                             echo "Namespace: ${K8S_NAMESPACE}"
                             echo "Build: ${env.BUILD_NUMBER}"
+                            
+                            # Display URLs directly instead of loading from file
+                            echo ""
+                            echo "🎊 DEPLOYMENT COMPLETED SUCCESSFULLY!"
+                            echo "🔗 Primary Access URL: http://${CLUSTER_IP}:\${NODE_PORT}/"
+                            if [ "\$ALB_URL" != "Not configured" ] && [ "\$ALB_URL" != "" ]; then
+                                echo "🌐 ALB URL: http://\${ALB_URL}/"
+                            fi
                         """
                         
-                        // Load and display URLs
-                        if (fileExists('deployment-url.env')) {
-                            load 'deployment-url.env'
-                            echo "🎊 DEPLOYMENT COMPLETED SUCCESSFULLY!"
-                            echo "🔗 Primary Access URL: ${DEPLOYMENT_URL}"
+                        // Read URLs from text file for email notification
+                        script {
+                            def nodeportUrl = ""
+                            def albUrl = ""
                             
-                            if (env.ALB_URL) {
-                                echo "🌐 ALB URL: ${ALB_URL}"
+                            if (fileExists('deployment-urls.txt')) {
+                                def urlFile = readFile('deployment-urls.txt')
+                                def lines = urlFile.split('\n')
+                                lines.each { line ->
+                                    if (line.startsWith('NODEPORT_URL=')) {
+                                        nodeportUrl = line.substring('NODEPORT_URL='.length())
+                                    } else if (line.startsWith('ALB_URL=')) {
+                                        albUrl = line.substring('ALB_URL='.length())
+                                    }
+                                }
                             }
-                            if (env.LB_URL) {
-                                echo "⚡ Load Balancer URL: ${LB_URL}"
-                            }
+                            
+                            // Store for email notification
+                            env.DEPLOYMENT_URL = nodeportUrl ?: "http://${CLUSTER_IP}:${sh(script: "kubectl get svc hotel-booking-system -n ${K8S_NAMESPACE} -o jsonpath='{.spec.ports[0].nodePort}'", returnStdout: true).trim()}/"
+                            env.ALB_NOTIFICATION_URL = albUrl ?: "Not configured"
                         }
                     }
                 }
@@ -487,11 +504,8 @@ pipeline {
                 currentBuild.description = "SUCCESS - v${VERSION} (${env.TARGET_DEPLOYMENT})"
                 
                 // Prepare deployment info for notification
-                def deploymentUrl = "Check Jenkins console for URLs"
-                if (fileExists('deployment-url.env')) {
-                    load 'deployment-url.env'
-                    deploymentUrl = DEPLOYMENT_URL
-                }
+                def deploymentUrl = env.DEPLOYMENT_URL ?: "Check Jenkins console for URLs"
+                def albUrl = env.ALB_NOTIFICATION_URL ?: "Not configured"
                 
                 // Extended email notification
                 emailext (
@@ -508,8 +522,7 @@ pipeline {
                     
                     🌐 Access URLs:
                     • Primary URL: ${deploymentUrl}
-                    ${env.ALB_URL ? "• ALB URL: " + ALB_URL : ""}
-                    ${env.LB_URL ? "• Load Balancer: " + LB_URL : ""}
+                    ${albUrl != "Not configured" ? "• ALB URL: " + albUrl : ""}
                     
                     📊 Build Information:
                     • Build URL: ${env.BUILD_URL}
