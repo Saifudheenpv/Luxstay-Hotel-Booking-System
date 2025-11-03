@@ -181,7 +181,7 @@ pipeline {
                     }
                     echo "✅ Docker image pushed: ${REGISTRY}/${APP_NAME}:${VERSION}"
                     
-                    # Also tag as latest for rollback capability
+                    // Also tag as latest for rollback capability
                     sh """
                         docker tag ${REGISTRY}/${APP_NAME}:${VERSION} ${REGISTRY}/${APP_NAME}:latest
                     """
