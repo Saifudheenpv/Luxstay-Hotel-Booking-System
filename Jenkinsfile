@@ -18,7 +18,6 @@ pipeline {
         REGISTRY = 'saifudheenpv'
         APP_NAME = 'hotel-booking-system'
         VERSION = "${env.BUILD_NUMBER}"
-        NEXUS_URL = '13.201.212.39:8081'
         SONAR_URL = 'http://13.233.38.12:9000'
         
         K8S_NAMESPACE = 'hotel-booking'
@@ -38,7 +37,6 @@ pipeline {
                 cleanWs()
                 sh '''
                     echo "=== Starting Fresh Build ==="
-                    echo "Build Number: ${BUILD_NUMBER}"
                     pwd
                 '''
             }
@@ -50,8 +48,6 @@ pipeline {
                 sh '''
                     echo "=== Git Information ==="
                     git log -1 --oneline
-                    echo "=== Project Structure ==="
-                    ls -la
                 '''
             }
         }
@@ -62,7 +58,7 @@ pipeline {
                     echo "=== Cleaning Docker Environment ==="
                     docker rm -f $(docker ps -aq) 2>/dev/null || echo "No containers to remove"
                     docker image prune -f
-                    echo "✅ Docker environment cleaned"
+                    echo "Docker environment cleaned"
                 '''
             }
         }
@@ -72,7 +68,7 @@ pipeline {
                 sh """
                     echo "=== Compiling Source Code ==="
                     mvn clean compile -q
-                    echo "✅ Compilation successful"
+                    echo "Compilation successful"
                     
                     echo "=== Running Unit Tests ==="
                     mvn test -Dspring.profiles.active=${TEST_PROFILE}
@@ -87,7 +83,7 @@ pipeline {
                     archiveArtifacts 'target/site/jacoco/jacoco.xml'
                 }
                 success {
-                    echo '✅ All tests passed'
+                    echo 'All tests passed'
                 }
             }
         }
@@ -98,7 +94,7 @@ pipeline {
                     steps {
                         sh '''
                             echo "=== Running Security Scan ==="
-                            trivy fs . --severity HIGH,CRITICAL --exit-code 0 --format table || echo "Scan completed"
+                            trivy fs . --severity HIGH,CRITICAL --exit-code 0 --format table || echo "Security scan completed"
                         '''
                     }
                 }
@@ -140,20 +136,6 @@ pipeline {
             }
         }
         
-        stage('Publish to Nexus') {
-            steps {
-                sh '''
-                    echo "=== Publishing to Nexus ==="
-                    if [ -f "target/hotel-booking-system-1.0.0.jar" ]; then
-                        echo "Found JAR file: hotel-booking-system-1.0.0.jar"
-                        echo "✅ Would publish to Nexus (implementation needed)"
-                    else
-                        echo "❌ JAR file not found for Nexus upload"
-                    fi
-                '''
-            }
-        }
-        
         stage('Docker Build & Push') {
             steps {
                 script {
@@ -162,14 +144,14 @@ pipeline {
                     
                     echo "=== Scanning Docker Image ==="
                     sh """
-                        trivy image --exit-code 0 --severity HIGH,CRITICAL ${REGISTRY}/${APP_NAME}:${VERSION} || echo "Scan completed"
+                        trivy image --exit-code 0 --severity HIGH,CRITICAL ${REGISTRY}/${APP_NAME}:${VERSION} || echo "Docker scan completed"
                     """
                     
                     echo "=== Pushing to Docker Hub ==="
                     docker.withRegistry('', 'dockerhub-creds') {
                         docker.image("${REGISTRY}/${APP_NAME}:${VERSION}").push()
                     }
-                    echo "✅ Docker image pushed"
+                    echo "Docker image pushed successfully"
                 }
             }
         }
@@ -179,7 +161,7 @@ pipeline {
                 script {
                     withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
                         sh """
-                            export KUBECONFIG=${KUBECONFIG_FILE}
+                            export KUBECONFIG=\${KUBECONFIG_FILE}
                             
                             echo "=== Setting up Kubernetes ==="
                             
@@ -188,14 +170,14 @@ pipeline {
                             
                             # Deploy MySQL
                             echo "=== Deploying MySQL ==="
-                            kubectl apply -f k8s/mysql-secret.yaml -n ${K8S_NAMESPACE} || echo "MySQL secret already exists"
-                            kubectl apply -f k8s/mysql-configmap.yaml -n ${K8S_NAMESPACE} || echo "MySQL configmap already exists"
-                            kubectl apply -f k8s/mysql-pvc.yaml -n ${K8S_NAMESPACE} || echo "MySQL PVC already exists"
-                            kubectl apply -f k8s/mysql-deployment.yaml -n ${K8S_NAMESPACE} || echo "MySQL deployment already exists"
-                            kubectl apply -f k8s/mysql-service.yaml -n ${K8S_NAMESPACE} || echo "MySQL service already exists"
+                            kubectl apply -f k8s/mysql-secret.yaml -n ${K8S_NAMESPACE}
+                            kubectl apply -f k8s/mysql-configmap.yaml -n ${K8S_NAMESPACE}
+                            kubectl apply -f k8s/mysql-pvc.yaml -n ${K8S_NAMESPACE}
+                            kubectl apply -f k8s/mysql-deployment.yaml -n ${K8S_NAMESPACE}
+                            kubectl apply -f k8s/mysql-service.yaml -n ${K8S_NAMESPACE}
                             
                             # Wait for MySQL
-                            kubectl wait --for=condition=ready pod -l app=mysql -n ${K8S_NAMESPACE} --timeout=300s || echo "MySQL ready check completed"
+                            kubectl wait --for=condition=ready pod -l app=mysql -n ${K8S_NAMESPACE} --timeout=300s
                             
                             # Deploy Application (Blue)
                             echo "=== Deploying Application ==="
@@ -203,11 +185,12 @@ pipeline {
                             kubectl apply -f k8s/app-deployment-blue.yaml -n ${K8S_NAMESPACE}
                             kubectl apply -f k8s/app-service-blue.yaml -n ${K8S_NAMESPACE}
                             kubectl apply -f k8s/app-service.yaml -n ${K8S_NAMESPACE}
+                            kubectl apply -f k8s/app-ingress.yaml -n ${K8S_NAMESPACE}
                             
                             # Wait for application
                             kubectl rollout status deployment/hotel-booking-system-blue -n ${K8S_NAMESPACE} --timeout=300s
                             
-                            echo "✅ Deployment completed"
+                            echo "Deployment completed successfully"
                         """
                     }
                 }
@@ -219,34 +202,65 @@ pipeline {
                 script {
                     withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
                         sh """
-                            export KUBECONFIG=${KUBECONFIG_FILE}
+                            export KUBECONFIG=\${KUBECONFIG_FILE}
                             
                             echo "=== Performing Health Check ==="
                             
                             # Get pod name
-                            POD_NAME=\$(kubectl get pods -n ${K8S_NAMESPACE} -l app=hotel-booking-system -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+                            POD_NAME=\$(kubectl get pods -n ${K8S_NAMESPACE} -l app=hotel-booking-system -o jsonpath='{.items[0].metadata.name}')
                             
                             if [ -n "\$POD_NAME" ]; then
                                 echo "Testing pod: \$POD_NAME"
                                 
                                 # Health check with retry
-                                for i in {1..10}; do
-                                    if kubectl exec -n ${K8S_NAMESPACE} \$POD_NAME -- curl -f -s http://localhost:8080/actuator/health > /dev/null; then
-                                        echo "✅ Health check PASSED"
+                                for i in 1 2 3 4 5 6 7 8 9 10; do
+                                    if kubectl exec -n ${K8S_NAMESPACE} "\$POD_NAME" -- curl -f -s http://localhost:8080/actuator/health > /dev/null; then
+                                        echo "Health check PASSED"
                                         break
                                     else
-                                        echo "Attempt \$i/10: Not ready..."
+                                        echo "Attempt \$i: Application not ready yet"
                                         sleep 10
                                     fi
                                 done
                             else
-                                echo "❌ No pods found"
+                                echo "No pods found for health check"
                                 exit 1
                             fi
                             
                             # Show final status
-                            echo "=== Final Status ==="
+                            echo "=== Final Deployment Status ==="
                             kubectl get all -n ${K8S_NAMESPACE}
+                            kubectl get ingress -n ${K8S_NAMESPACE}
+                        """
+                    }
+                }
+            }
+        }
+        
+        stage('Final Verification') {
+            steps {
+                script {
+                    withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+                        sh """
+                            export KUBECONFIG=\${KUBECONFIG_FILE}
+                            
+                            echo "=== Final Verification ==="
+                            
+                            # Get service information
+                            kubectl get svc hotel-booking-system -n ${K8S_NAMESPACE}
+                            
+                            # Get LoadBalancer IP if available
+                            LB_IP=\$(kubectl get svc hotel-booking-system -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+                            
+                            if [ -n "\$LB_IP" ]; then
+                                echo "Application URL: http://\$LB_IP"
+                                echo "Health Check URL: http://\$LB_IP/actuator/health"
+                            else
+                                echo "LoadBalancer IP not yet assigned"
+                            fi
+                            
+                            echo "=== All Components Status ==="
+                            kubectl get pods -n ${K8S_NAMESPACE}
                         """
                     }
                 }
@@ -257,19 +271,18 @@ pipeline {
     post {
         always {
             sh '''
-                echo "=== Build Completed ==="
-                echo "Result: ${currentBuild.currentResult}"
+                echo "Build process completed"
             '''
             cleanWs()
         }
         success {
-            echo "🎉 Pipeline executed successfully!"
+            echo "Pipeline executed successfully!"
             script {
                 currentBuild.description = "SUCCESS - Build ${VERSION}"
             }
         }
         failure {
-            echo "❌ Pipeline failed!"
+            echo "Pipeline execution failed!"
             script {
                 currentBuild.description = "FAILED - Build ${VERSION}"
             }
