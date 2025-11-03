@@ -17,7 +17,7 @@ pipeline {
         REGISTRY = 'saifudheenpv'
         APP_NAME = 'hotel-booking-system'
         VERSION = "${env.BUILD_NUMBER}"
-        NEXUS_URL = 'http://13.201.212.39:8081'
+        NEXUS_URL = '13.201.212.39:8081'   // ✅ cleaned (no http:// prefix)
         SONAR_URL = 'http://13.233.38.12:9000'
         
         // Kubernetes Configuration
@@ -234,8 +234,7 @@ pipeline {
                             kubectl wait --for=condition=ready pod -l app=mysql -n ${K8S_NAMESPACE} --timeout=300s
                             
                             echo "=== Deploying Blue Version ${VERSION} ==="
-                            # Update image in deployment
-                            sed -i 's|image:.*|image: ${REGISTRY}/${APP_NAME}:${VERSION}|g' k8s/app-deployment-blue.yaml
+                            sed -i "s|image:.*|image: ${REGISTRY}/${APP_NAME}:${VERSION}|g" k8s/app-deployment-blue.yaml
                             kubectl apply -f k8s/app-deployment-blue.yaml
                             
                             echo "=== Waiting for Blue to be ready ==="
@@ -278,17 +277,11 @@ pipeline {
                             export KUBECONFIG=${KUBECONFIG_FILE}
                             
                             echo "=== Verifying Deployment ==="
-                            
-                            # Get service details
                             kubectl get svc -n ${K8S_NAMESPACE}
-                            
-                            # Wait for LoadBalancer IP
                             echo "Waiting for LoadBalancer IP..."
                             sleep 30
                             
-                            # Get the service IP
                             SERVICE_IP=\$(kubectl get svc hotel-booking-system -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-                            
                             if [ -z "\$SERVICE_IP" ]; then
                                 SERVICE_IP=\$(kubectl get svc hotel-booking-system -n ${K8S_NAMESPACE} -o jsonpath='{.spec.clusterIP}')
                                 echo "Using ClusterIP: \$SERVICE_IP"
@@ -296,11 +289,9 @@ pipeline {
                                 echo "Using LoadBalancer IP: \$SERVICE_IP"
                             fi
                             
-                            # Health check with retry
                             for i in {1..15}; do
                                 if curl -f -s http://\$SERVICE_IP/actuator/health > /dev/null; then
                                     echo "✅ Application health check PASSED"
-                                    echo "Health response:"
                                     curl -s http://\$SERVICE_IP/actuator/health | head -5
                                     break
                                 fi
@@ -318,10 +309,7 @@ pipeline {
     
     post {
         always {
-            // Cleanup workspace
             cleanWs()
-            
-            // Send notification
             emailext (
                 subject: "BUILD ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
                 body: """
