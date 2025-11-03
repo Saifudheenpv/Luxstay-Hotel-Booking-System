@@ -14,27 +14,27 @@ import java.util.Optional;
     private HotelRepository hotelRepository;
     
     public List&lt;Hotel&gt; getAllHotels() {
-<span class="nc" id="L17">        return hotelRepository.findAll();</span>
+<span class="fc" id="L17">        return hotelRepository.findAll();</span>
     }
     
     public Optional&lt;Hotel&gt; getHotelById(Long id) {
-<span class="nc" id="L21">        return hotelRepository.findById(id);</span>
+<span class="fc" id="L21">        return hotelRepository.findById(id);</span>
     }
     
     public List&lt;Hotel&gt; getHotelsByCity(String city) {
-<span class="nc" id="L25">        return hotelRepository.findByCity(city);</span>
+<span class="fc" id="L25">        return hotelRepository.findByCity(city);</span>
     }
     
     public List&lt;Hotel&gt; searchHotels(String query) {
-<span class="nc" id="L29">        return hotelRepository.findByNameContaining(query);</span>
+<span class="fc" id="L29">        return hotelRepository.findByNameContaining(query);</span>
     }
     
     public List&lt;String&gt; getAllCities() {
-<span class="nc" id="L33">        return hotelRepository.findAllCities();</span>
+<span class="fc" id="L33">        return hotelRepository.findAllCities();</span>
     }
     
     public Hotel saveHotel(Hotel hotel) {
-<span class="nc" id="L37">        return hotelRepository.save(hotel);</span>
+<span class="fc" id="L37">        return hotelRepository.save(hotel);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.8.202204050719</span></div></body></html>

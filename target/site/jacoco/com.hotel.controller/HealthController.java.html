@@ -10,12 +10,12 @@ import org.springframework.web.bind.annotation.RestController;
 
     @GetMapping(&quot;/health&quot;)
     public String simpleHealth() {
-<span class="nc" id="L13">        return &quot;OK&quot;;</span>
+<span class="fc" id="L13">        return &quot;OK&quot;;</span>
     }
 
     @GetMapping(&quot;/actuator/info&quot;)
     public String info() {
-<span class="nc" id="L18">        return &quot;Hotel Booking System - Version 1.0.0&quot;;</span>
+<span class="fc" id="L18">        return &quot;Hotel Booking System - Version 1.0.0&quot;;</span>
     }
 
     @Override
@@ -23,11 +23,11 @@ import org.springframework.web.bind.annotation.RestController;
         try {
             // Add custom health checks here
             // You can check database connectivity, external services, etc.
-<span class="nc" id="L26">            return Health.up()</span>
-<span class="nc" id="L27">                    .withDetail(&quot;service&quot;, &quot;Hotel Booking System&quot;)</span>
-<span class="nc" id="L28">                    .withDetail(&quot;status&quot;, &quot;UP&quot;)</span>
-<span class="nc" id="L29">                    .withDetail(&quot;version&quot;, &quot;1.0.0&quot;)</span>
-<span class="nc" id="L30">                    .build();</span>
+<span class="fc" id="L26">            return Health.up()</span>
+<span class="fc" id="L27">                    .withDetail(&quot;service&quot;, &quot;Hotel Booking System&quot;)</span>
+<span class="fc" id="L28">                    .withDetail(&quot;status&quot;, &quot;UP&quot;)</span>
+<span class="fc" id="L29">                    .withDetail(&quot;version&quot;, &quot;1.0.0&quot;)</span>
+<span class="fc" id="L30">                    .build();</span>
 <span class="nc" id="L31">        } catch (Exception e) {</span>
 <span class="nc" id="L32">            return Health.down(e)</span>
 <span class="nc" id="L33">                    .withDetail(&quot;service&quot;, &quot;Hotel Booking System&quot;)</span>

@@ -14,11 +14,11 @@ import java.util.Optional;
     private ReviewRepository reviewRepository;
     
     public Review createReview(Review review) {
-<span class="nc" id="L17">        return reviewRepository.save(review);</span>
+<span class="fc" id="L17">        return reviewRepository.save(review);</span>
     }
     
     public List&lt;Review&gt; getReviewsByHotelId(Long hotelId) {
-<span class="nc" id="L21">        return reviewRepository.findByHotelId(hotelId);</span>
+<span class="fc" id="L21">        return reviewRepository.findByHotelId(hotelId);</span>
     }
     
     public List&lt;Review&gt; getReviewsByUserId(Long userId) {
@@ -26,20 +26,20 @@ import java.util.Optional;
     }
     
     public Optional&lt;Review&gt; getReviewById(Long id) {
-<span class="nc" id="L29">        return reviewRepository.findById(id);</span>
+<span class="fc" id="L29">        return reviewRepository.findById(id);</span>
     }
     
     public Double getAverageRatingForHotel(Long hotelId) {
-<span class="nc" id="L33">        Double avg = reviewRepository.findAverageRatingByHotelId(hotelId);</span>
-<span class="nc bnc" id="L34" title="All 2 branches missed.">        return avg != null ? Math.round(avg * 10.0) / 10.0 : 0.0;</span>
+<span class="fc" id="L33">        Double avg = reviewRepository.findAverageRatingByHotelId(hotelId);</span>
+<span class="fc bfc" id="L34" title="All 2 branches covered.">        return avg != null ? Math.round(avg * 10.0) / 10.0 : 0.0;</span>
     }
     
     public Long getReviewCountForHotel(Long hotelId) {
-<span class="nc" id="L38">        return reviewRepository.countReviewsByHotelId(hotelId);</span>
+<span class="fc" id="L38">        return reviewRepository.countReviewsByHotelId(hotelId);</span>
     }
     
     public boolean hasUserReviewedBooking(Long bookingId) {
-<span class="nc" id="L42">        return reviewRepository.existsByBookingId(bookingId);</span>
+<span class="fc" id="L42">        return reviewRepository.existsByBookingId(bookingId);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.8.202204050719</span></div></body></html>

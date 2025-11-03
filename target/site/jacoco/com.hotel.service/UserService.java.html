@@ -19,8 +19,8 @@ import java.util.Optional;
     private SimplePasswordEncoder passwordEncoder;
     
     public User registerUser(User user) {
-<span class="pc bpc" id="L22" title="1 of 2 branches missed.">        if (userRepository.existsByUsername(user.getUsername())) {</span>
-<span class="nc" id="L23">            throw new RuntimeException(&quot;Username already exists&quot;);</span>
+<span class="fc bfc" id="L22" title="All 2 branches covered.">        if (userRepository.existsByUsername(user.getUsername())) {</span>
+<span class="fc" id="L23">            throw new RuntimeException(&quot;Username already exists&quot;);</span>
         }
 <span class="pc bpc" id="L25" title="1 of 2 branches missed.">        if (userRepository.existsByEmail(user.getEmail())) {</span>
 <span class="nc" id="L26">            throw new RuntimeException(&quot;Email already exists&quot;);</span>
@@ -35,11 +35,11 @@ import java.util.Optional;
 <span class="fc" id="L35">        Optional&lt;User&gt; userOpt = userRepository.findByUsername(username);</span>
 <span class="pc bpc" id="L36" title="1 of 2 branches missed.">        if (userOpt.isPresent()) {</span>
 <span class="fc" id="L37">            User user = userOpt.get();</span>
-<span class="pc bpc" id="L38" title="1 of 2 branches missed.">            if (passwordEncoder.matches(password, user.getPassword())) {</span>
+<span class="fc bfc" id="L38" title="All 2 branches covered.">            if (passwordEncoder.matches(password, user.getPassword())) {</span>
 <span class="fc" id="L39">                return Optional.of(user);</span>
             }
         }
-<span class="nc" id="L42">        return Optional.empty();</span>
+<span class="fc" id="L42">        return Optional.empty();</span>
     }
     
     public Optional&lt;User&gt; findById(Long id) {
@@ -47,11 +47,11 @@ import java.util.Optional;
     }
     
     public User updateUser(User user) {
-<span class="nc" id="L50">        return userRepository.save(user);</span>
+<span class="fc" id="L50">        return userRepository.save(user);</span>
     }
     
     public boolean existsByUsername(String username) {
-<span class="nc" id="L54">        return userRepository.existsByUsername(username);</span>
+<span class="fc" id="L54">        return userRepository.existsByUsername(username);</span>
     }
     
     public boolean existsByEmail(String email) {
@@ -60,15 +60,15 @@ import java.util.Optional;
     
     // Methods needed for tests
     public List&lt;User&gt; findAll() {
-<span class="nc" id="L63">        return userRepository.findAll();</span>
+<span class="fc" id="L63">        return userRepository.findAll();</span>
     }
 
     public User save(User user) {
-<span class="nc" id="L67">        return userRepository.save(user);</span>
+<span class="fc" id="L67">        return userRepository.save(user);</span>
     }
 
     public void deleteById(Long id) {
-<span class="nc" id="L71">        userRepository.deleteById(id);</span>
-<span class="nc" id="L72">    }</span>
+<span class="fc" id="L71">        userRepository.deleteById(id);</span>
+<span class="fc" id="L72">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.8.202204050719</span></div></body></html>

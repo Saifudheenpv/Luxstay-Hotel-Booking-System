@@ -31,78 +31,78 @@ import java.util.Optional;
     
     @GetMapping
     public String getAllHotels(Model model, HttpSession session) {
-<span class="nc" id="L34">        model.addAttribute(&quot;hotels&quot;, hotelService.getAllHotels());</span>
-<span class="nc" id="L35">        model.addAttribute(&quot;cities&quot;, hotelService.getAllCities());</span>
-<span class="nc" id="L36">        model.addAttribute(&quot;selectedCity&quot;, &quot;&quot;);</span>
-<span class="nc" id="L37">        model.addAttribute(&quot;searchQuery&quot;, &quot;&quot;);</span>
+<span class="fc" id="L34">        model.addAttribute(&quot;hotels&quot;, hotelService.getAllHotels());</span>
+<span class="fc" id="L35">        model.addAttribute(&quot;cities&quot;, hotelService.getAllCities());</span>
+<span class="fc" id="L36">        model.addAttribute(&quot;selectedCity&quot;, &quot;&quot;);</span>
+<span class="fc" id="L37">        model.addAttribute(&quot;searchQuery&quot;, &quot;&quot;);</span>
         
-<span class="nc" id="L39">        Long userId = (Long) session.getAttribute(&quot;userId&quot;);</span>
-<span class="nc bnc" id="L40" title="All 2 branches missed.">        if (userId != null) {</span>
+<span class="fc" id="L39">        Long userId = (Long) session.getAttribute(&quot;userId&quot;);</span>
+<span class="pc bpc" id="L40" title="1 of 2 branches missed.">        if (userId != null) {</span>
 <span class="nc" id="L41">            Optional&lt;User&gt; userOpt = userService.findById(userId);</span>
 <span class="nc" id="L42">            userOpt.ifPresent(user -&gt; model.addAttribute(&quot;currentUser&quot;, user));</span>
         }
         
-<span class="nc" id="L45">        return &quot;hotels&quot;;</span>
+<span class="fc" id="L45">        return &quot;hotels&quot;;</span>
     }
     
     @GetMapping(&quot;/{id}&quot;)
     public String getHotelById(@PathVariable Long id, Model model, HttpSession session) {
-<span class="nc" id="L50">        hotelService.getHotelById(id).ifPresent(hotel -&gt; {</span>
-<span class="nc" id="L51">            model.addAttribute(&quot;hotel&quot;, hotel);</span>
-<span class="nc" id="L52">            model.addAttribute(&quot;rooms&quot;, roomService.getAvailableRoomsByHotelId(id));</span>
-<span class="nc" id="L53">            model.addAttribute(&quot;reviews&quot;, reviewService.getReviewsByHotelId(id));</span>
-<span class="nc" id="L54">            model.addAttribute(&quot;averageRating&quot;, reviewService.getAverageRatingForHotel(id));</span>
-<span class="nc" id="L55">            model.addAttribute(&quot;reviewCount&quot;, reviewService.getReviewCountForHotel(id));</span>
-<span class="nc" id="L56">        });</span>
+<span class="fc" id="L50">        hotelService.getHotelById(id).ifPresent(hotel -&gt; {</span>
+<span class="fc" id="L51">            model.addAttribute(&quot;hotel&quot;, hotel);</span>
+<span class="fc" id="L52">            model.addAttribute(&quot;rooms&quot;, roomService.getAvailableRoomsByHotelId(id));</span>
+<span class="fc" id="L53">            model.addAttribute(&quot;reviews&quot;, reviewService.getReviewsByHotelId(id));</span>
+<span class="fc" id="L54">            model.addAttribute(&quot;averageRating&quot;, reviewService.getAverageRatingForHotel(id));</span>
+<span class="fc" id="L55">            model.addAttribute(&quot;reviewCount&quot;, reviewService.getReviewCountForHotel(id));</span>
+<span class="fc" id="L56">        });</span>
         
-<span class="nc" id="L58">        Long userId = (Long) session.getAttribute(&quot;userId&quot;);</span>
-<span class="nc bnc" id="L59" title="All 2 branches missed.">        if (userId != null) {</span>
+<span class="fc" id="L58">        Long userId = (Long) session.getAttribute(&quot;userId&quot;);</span>
+<span class="pc bpc" id="L59" title="1 of 2 branches missed.">        if (userId != null) {</span>
 <span class="nc" id="L60">            Optional&lt;User&gt; userOpt = userService.findById(userId);</span>
 <span class="nc" id="L61">            userOpt.ifPresent(user -&gt; model.addAttribute(&quot;currentUser&quot;, user));</span>
         }
         
-<span class="nc" id="L64">        return &quot;hotel-rooms&quot;;</span>
+<span class="fc" id="L64">        return &quot;hotel-rooms&quot;;</span>
     }
     
     @GetMapping(&quot;/search&quot;)
     public String searchHotels(@RequestParam(required = false) String query, 
                               @RequestParam(required = false) String city,
                               Model model, HttpSession session) {
-<span class="nc bnc" id="L71" title="All 4 branches missed.">        if (city != null &amp;&amp; !city.isEmpty()) {</span>
-<span class="nc" id="L72">            model.addAttribute(&quot;hotels&quot;, hotelService.getHotelsByCity(city));</span>
-<span class="nc bnc" id="L73" title="All 4 branches missed.">        } else if (query != null &amp;&amp; !query.isEmpty()) {</span>
-<span class="nc" id="L74">            model.addAttribute(&quot;hotels&quot;, hotelService.searchHotels(query));</span>
+<span class="pc bpc" id="L71" title="1 of 4 branches missed.">        if (city != null &amp;&amp; !city.isEmpty()) {</span>
+<span class="fc" id="L72">            model.addAttribute(&quot;hotels&quot;, hotelService.getHotelsByCity(city));</span>
+<span class="pc bpc" id="L73" title="2 of 4 branches missed.">        } else if (query != null &amp;&amp; !query.isEmpty()) {</span>
+<span class="fc" id="L74">            model.addAttribute(&quot;hotels&quot;, hotelService.searchHotels(query));</span>
         } else {
 <span class="nc" id="L76">            model.addAttribute(&quot;hotels&quot;, hotelService.getAllHotels());</span>
         }
         
-<span class="nc" id="L79">        model.addAttribute(&quot;cities&quot;, hotelService.getAllCities());</span>
-<span class="nc bnc" id="L80" title="All 2 branches missed.">        model.addAttribute(&quot;searchQuery&quot;, query != null ? query : &quot;&quot;);</span>
-<span class="nc bnc" id="L81" title="All 2 branches missed.">        model.addAttribute(&quot;selectedCity&quot;, city != null ? city : &quot;&quot;);</span>
+<span class="fc" id="L79">        model.addAttribute(&quot;cities&quot;, hotelService.getAllCities());</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        model.addAttribute(&quot;searchQuery&quot;, query != null ? query : &quot;&quot;);</span>
+<span class="fc bfc" id="L81" title="All 2 branches covered.">        model.addAttribute(&quot;selectedCity&quot;, city != null ? city : &quot;&quot;);</span>
         
-<span class="nc" id="L83">        Long userId = (Long) session.getAttribute(&quot;userId&quot;);</span>
-<span class="nc bnc" id="L84" title="All 2 branches missed.">        if (userId != null) {</span>
+<span class="fc" id="L83">        Long userId = (Long) session.getAttribute(&quot;userId&quot;);</span>
+<span class="pc bpc" id="L84" title="1 of 2 branches missed.">        if (userId != null) {</span>
 <span class="nc" id="L85">            Optional&lt;User&gt; userOpt = userService.findById(userId);</span>
 <span class="nc" id="L86">            userOpt.ifPresent(user -&gt; model.addAttribute(&quot;currentUser&quot;, user));</span>
         }
         
-<span class="nc" id="L89">        return &quot;hotels&quot;;</span>
+<span class="fc" id="L89">        return &quot;hotels&quot;;</span>
     }
     
     @GetMapping(&quot;/city/{city}&quot;)
     public String getHotelsByCity(@PathVariable String city, Model model, HttpSession session) {
-<span class="nc" id="L94">        model.addAttribute(&quot;hotels&quot;, hotelService.getHotelsByCity(city));</span>
-<span class="nc" id="L95">        model.addAttribute(&quot;cities&quot;, hotelService.getAllCities());</span>
-<span class="nc" id="L96">        model.addAttribute(&quot;selectedCity&quot;, city);</span>
-<span class="nc" id="L97">        model.addAttribute(&quot;searchQuery&quot;, &quot;&quot;);</span>
+<span class="fc" id="L94">        model.addAttribute(&quot;hotels&quot;, hotelService.getHotelsByCity(city));</span>
+<span class="fc" id="L95">        model.addAttribute(&quot;cities&quot;, hotelService.getAllCities());</span>
+<span class="fc" id="L96">        model.addAttribute(&quot;selectedCity&quot;, city);</span>
+<span class="fc" id="L97">        model.addAttribute(&quot;searchQuery&quot;, &quot;&quot;);</span>
         
-<span class="nc" id="L99">        Long userId = (Long) session.getAttribute(&quot;userId&quot;);</span>
-<span class="nc bnc" id="L100" title="All 2 branches missed.">        if (userId != null) {</span>
+<span class="fc" id="L99">        Long userId = (Long) session.getAttribute(&quot;userId&quot;);</span>
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">        if (userId != null) {</span>
 <span class="nc" id="L101">            Optional&lt;User&gt; userOpt = userService.findById(userId);</span>
 <span class="nc" id="L102">            userOpt.ifPresent(user -&gt; model.addAttribute(&quot;currentUser&quot;, user));</span>
         }
         
-<span class="nc" id="L105">        return &quot;hotels&quot;;</span>
+<span class="fc" id="L105">        return &quot;hotels&quot;;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.8.202204050719</span></div></body></html>

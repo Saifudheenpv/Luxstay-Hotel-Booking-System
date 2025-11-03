@@ -3,11 +3,12 @@ package com.hotel.dto;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-public class UserRegistrationDTOTest {
+class UserRegistrationDTOTest {
 
     @Test
-    public void testUserRegistrationDTO() {
+    void userRegistrationDTO_ShouldHaveCorrectGettersAndSetters() {
         UserRegistrationDTO dto = new UserRegistrationDTO();
+        
         dto.setUsername("testuser");
         dto.setEmail("test@example.com");
         dto.setPassword("password123");
@@ -15,7 +16,7 @@ public class UserRegistrationDTOTest {
         dto.setLastName("Doe");
         dto.setPhone("1234567890");
         dto.setAddress("Test Address");
-
+        
         assertEquals("testuser", dto.getUsername());
         assertEquals("test@example.com", dto.getEmail());
         assertEquals("password123", dto.getPassword());

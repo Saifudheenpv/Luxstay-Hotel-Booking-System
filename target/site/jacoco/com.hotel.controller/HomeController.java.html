@@ -26,37 +26,37 @@ import java.util.Optional;
     
     @GetMapping(&quot;/&quot;)
     public String home(Model model, HttpSession session) {
-<span class="nc" id="L29">        model.addAttribute(&quot;hotels&quot;, hotelService.getAllHotels());</span>
-<span class="nc" id="L30">        model.addAttribute(&quot;cities&quot;, hotelService.getAllCities());</span>
+<span class="fc" id="L29">        model.addAttribute(&quot;hotels&quot;, hotelService.getAllHotels());</span>
+<span class="fc" id="L30">        model.addAttribute(&quot;cities&quot;, hotelService.getAllCities());</span>
         
         // Check if user is logged in
-<span class="nc" id="L33">        Long userId = (Long) session.getAttribute(&quot;userId&quot;);</span>
-<span class="nc bnc" id="L34" title="All 2 branches missed.">        if (userId != null) {</span>
-<span class="nc" id="L35">            Optional&lt;User&gt; userOpt = userService.findById(userId);</span>
-<span class="nc" id="L36">            userOpt.ifPresent(user -&gt; model.addAttribute(&quot;currentUser&quot;, user));</span>
+<span class="fc" id="L33">        Long userId = (Long) session.getAttribute(&quot;userId&quot;);</span>
+<span class="fc bfc" id="L34" title="All 2 branches covered.">        if (userId != null) {</span>
+<span class="fc" id="L35">            Optional&lt;User&gt; userOpt = userService.findById(userId);</span>
+<span class="fc" id="L36">            userOpt.ifPresent(user -&gt; model.addAttribute(&quot;currentUser&quot;, user));</span>
         }
         
-<span class="nc" id="L39">        return &quot;index&quot;;</span>
+<span class="fc" id="L39">        return &quot;index&quot;;</span>
     }
     
     @GetMapping(&quot;/about&quot;)
     public String about(HttpSession session, Model model) {
-<span class="nc" id="L44">        Long userId = (Long) session.getAttribute(&quot;userId&quot;);</span>
-<span class="nc bnc" id="L45" title="All 2 branches missed.">        if (userId != null) {</span>
-<span class="nc" id="L46">            Optional&lt;User&gt; userOpt = userService.findById(userId);</span>
-<span class="nc" id="L47">            userOpt.ifPresent(user -&gt; model.addAttribute(&quot;currentUser&quot;, user));</span>
+<span class="fc" id="L44">        Long userId = (Long) session.getAttribute(&quot;userId&quot;);</span>
+<span class="pc bpc" id="L45" title="1 of 2 branches missed.">        if (userId != null) {</span>
+<span class="fc" id="L46">            Optional&lt;User&gt; userOpt = userService.findById(userId);</span>
+<span class="fc" id="L47">            userOpt.ifPresent(user -&gt; model.addAttribute(&quot;currentUser&quot;, user));</span>
         }
-<span class="nc" id="L49">        return &quot;about&quot;;</span>
+<span class="fc" id="L49">        return &quot;about&quot;;</span>
     }
     
     @GetMapping(&quot;/contact&quot;)
     public String contact(HttpSession session, Model model) {
-<span class="nc" id="L54">        Long userId = (Long) session.getAttribute(&quot;userId&quot;);</span>
-<span class="nc bnc" id="L55" title="All 2 branches missed.">        if (userId != null) {</span>
-<span class="nc" id="L56">            Optional&lt;User&gt; userOpt = userService.findById(userId);</span>
-<span class="nc" id="L57">            userOpt.ifPresent(user -&gt; model.addAttribute(&quot;currentUser&quot;, user));</span>
+<span class="fc" id="L54">        Long userId = (Long) session.getAttribute(&quot;userId&quot;);</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">        if (userId != null) {</span>
+<span class="fc" id="L56">            Optional&lt;User&gt; userOpt = userService.findById(userId);</span>
+<span class="fc" id="L57">            userOpt.ifPresent(user -&gt; model.addAttribute(&quot;currentUser&quot;, user));</span>
         }
-<span class="nc" id="L59">        return &quot;contact&quot;;</span>
+<span class="fc" id="L59">        return &quot;contact&quot;;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.8.202204050719</span></div></body></html>

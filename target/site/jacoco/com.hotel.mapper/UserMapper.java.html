@@ -8,18 +8,18 @@ import org.springframework.stereotype.Component;
 <span class="fc" id="L8">public class UserMapper {</span>
     
     public UserDTO toDTO(User user) {
-<span class="nc bnc" id="L11" title="All 2 branches missed.">        if (user == null) {</span>
-<span class="nc" id="L12">            return null;</span>
+<span class="fc bfc" id="L11" title="All 2 branches covered.">        if (user == null) {</span>
+<span class="fc" id="L12">            return null;</span>
         }
         
-<span class="nc" id="L15">        return new UserDTO(</span>
-<span class="nc" id="L16">            user.getId(),</span>
-<span class="nc" id="L17">            user.getUsername(),</span>
-<span class="nc" id="L18">            user.getEmail(),</span>
-<span class="nc" id="L19">            user.getFirstName(),</span>
-<span class="nc" id="L20">            user.getLastName(),</span>
-<span class="nc" id="L21">            user.getPhone(),</span>
-<span class="nc" id="L22">            user.getAddress()</span>
+<span class="fc" id="L15">        return new UserDTO(</span>
+<span class="fc" id="L16">            user.getId(),</span>
+<span class="fc" id="L17">            user.getUsername(),</span>
+<span class="fc" id="L18">            user.getEmail(),</span>
+<span class="fc" id="L19">            user.getFirstName(),</span>
+<span class="fc" id="L20">            user.getLastName(),</span>
+<span class="fc" id="L21">            user.getPhone(),</span>
+<span class="fc" id="L22">            user.getAddress()</span>
         );
     }
 }

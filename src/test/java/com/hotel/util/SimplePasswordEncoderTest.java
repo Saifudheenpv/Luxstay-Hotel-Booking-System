@@ -3,34 +3,45 @@ package com.hotel.util;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-public class SimplePasswordEncoderTest {
+class SimplePasswordEncoderTest {
 
     private SimplePasswordEncoder passwordEncoder = new SimplePasswordEncoder();
 
     @Test
-    public void testEncodePassword() {
-        String password = "testpassword";
-        String encoded = passwordEncoder.encode(password);
-        
-        assertNotNull(encoded);
-        assertNotEquals(password, encoded);
-        assertTrue(encoded.length() > 0);
+    void encode_ShouldReturnConsistentHash() {
+        String password = "testPassword123";
+        String encoded1 = passwordEncoder.encode(password);
+        String encoded2 = passwordEncoder.encode(password);
+
+        assertNotNull(encoded1);
+        assertNotNull(encoded2);
+        assertEquals(encoded1, encoded2);
+        assertNotEquals(password, encoded1);
     }
 
     @Test
-    public void testMatches_Success() {
-        String password = "testpassword";
+    void matches_WithCorrectPassword_ShouldReturnTrue() {
+        String password = "testPassword123";
         String encoded = passwordEncoder.encode(password);
-        
+
         assertTrue(passwordEncoder.matches(password, encoded));
     }
 
     @Test
-    public void testMatches_Failure() {
-        String password = "testpassword";
-        String wrongPassword = "wrongpassword";
+    void matches_WithIncorrectPassword_ShouldReturnFalse() {
+        String password = "testPassword123";
+        String wrongPassword = "wrongPassword";
         String encoded = passwordEncoder.encode(password);
-        
+
         assertFalse(passwordEncoder.matches(wrongPassword, encoded));
+    }
+
+    @Test
+    void matches_WithDifferentEncodedPassword_ShouldReturnFalse() {
+        String password = "testPassword123";
+        String encoded1 = passwordEncoder.encode(password);
+        String encoded2 = passwordEncoder.encode("differentPassword");
+
+        assertFalse(passwordEncoder.matches(password, encoded2));
     }
 }
