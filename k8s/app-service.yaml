@@ -6,10 +6,13 @@ metadata:
   labels:
     app: hotel-booking-system
 spec:
+  type: LoadBalancer
   selector:
     app: hotel-booking-system
-    version: blue
+    version: blue  # Match the active deployment
   ports:
-    - port: 80
-      targetPort: 8080
-  type: LoadBalancer
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  externalTrafficPolicy: Local
