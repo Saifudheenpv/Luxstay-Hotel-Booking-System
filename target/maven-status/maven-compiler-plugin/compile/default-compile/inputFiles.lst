@@ -1,3 +1,4 @@
+/home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/dto/UserDTO.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/controller/AuthController.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/config/WebConfig.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/config/DataInitializer.java
@@ -7,6 +8,7 @@
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/controller/HomeController.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/repository/RoomRepository.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/model/Hotel.java
+/home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/mapper/UserMapper.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/controller/HotelController.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/util/DatabaseHealthCheck.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/controller/HealthController.java
@@ -20,6 +22,7 @@
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/service/UserService.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/model/Room.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/repository/HotelRepository.java
+/home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/dto/ProfileUpdateDTO.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/controller/ProfileController.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/controller/BookingController.java
 /home/saifudheen/Projects/Hotel-Booking-System/src/main/java/com/hotel/service/RoomService.java

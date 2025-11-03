@@ -43,15 +43,15 @@ import java.util.Optional;
     }
     
     public Optional&lt;User&gt; findById(Long id) {
-<span class="fc" id="L46">        return userRepository.findById(id);</span>
+<span class="nc" id="L46">        return userRepository.findById(id);</span>
     }
     
     public User updateUser(User user) {
-<span class="fc" id="L50">        return userRepository.save(user);</span>
+<span class="nc" id="L50">        return userRepository.save(user);</span>
     }
     
     public boolean existsByUsername(String username) {
-<span class="fc" id="L54">        return userRepository.existsByUsername(username);</span>
+<span class="nc" id="L54">        return userRepository.existsByUsername(username);</span>
     }
     
     public boolean existsByEmail(String email) {

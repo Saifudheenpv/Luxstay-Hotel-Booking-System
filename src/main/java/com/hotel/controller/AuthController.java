@@ -1,5 +1,7 @@
 package com.hotel.controller;
 
+import com.hotel.dto.UserDTO;
+import com.hotel.mapper.UserMapper;
 import com.hotel.model.User;
 import com.hotel.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +19,9 @@ public class AuthController {
     
     @Autowired
     private UserService userService;
+    
+    @Autowired
+    private UserMapper userMapper;
     
     @GetMapping("/register")
     public String showRegistrationForm(Model model) {
@@ -58,7 +63,8 @@ public class AuthController {
         
         if (userOpt.isPresent()) {
             User user = userOpt.get();
-            session.setAttribute("user", user);
+            UserDTO userDTO = userMapper.toDTO(user);
+            session.setAttribute("user", userDTO);
             session.setAttribute("userId", user.getId());
             session.setAttribute("username", user.getUsername());
             redirectAttributes.addFlashAttribute("success", "Welcome back, " + user.getFirstName() + "!");
