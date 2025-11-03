@@ -2,8 +2,8 @@ pipeline {
     agent any
     
     tools {
-        jdk 'jdk17'
-        maven 'maven3'
+        jdk 'JDK17'
+        maven 'Maven3'
     }
     
     environment {
@@ -72,7 +72,7 @@ pipeline {
         
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('sonar-server') {
+                withSonarQubeEnv('Sonar-Server') {
                     sh """
                         mvn sonar:sonar \
                         -Dsonar.projectKey=hotel-booking-system \
