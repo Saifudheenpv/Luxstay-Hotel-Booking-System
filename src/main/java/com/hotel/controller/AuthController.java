@@ -1,7 +1,6 @@
 package com.hotel.controller;
 
-import com.hotel.dto.UserDTO;
-import com.hotel.mapper.UserMapper;
+import com.hotel.dto.UserRegistrationDTO;
 import com.hotel.model.User;
 import com.hotel.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,24 +19,31 @@ public class AuthController {
     @Autowired
     private UserService userService;
     
-    @Autowired
-    private UserMapper userMapper;
-    
     @GetMapping("/register")
     public String showRegistrationForm(Model model) {
-        model.addAttribute("user", new User());
+        model.addAttribute("userRegistrationDTO", new UserRegistrationDTO());
         return "register";
     }
     
     @PostMapping("/register")
-    public String registerUser(@ModelAttribute User user, 
+    public String registerUser(@ModelAttribute UserRegistrationDTO userRegistrationDTO,
                               @RequestParam String confirmPassword,
                               RedirectAttributes redirectAttributes) {
         try {
-            if (!user.getPassword().equals(confirmPassword)) {
+            if (!userRegistrationDTO.getPassword().equals(confirmPassword)) {
                 redirectAttributes.addFlashAttribute("error", "Passwords do not match");
                 return "redirect:/auth/register";
             }
+            
+            // Convert DTO to Entity
+            User user = new User();
+            user.setUsername(userRegistrationDTO.getUsername());
+            user.setEmail(userRegistrationDTO.getEmail());
+            user.setPassword(userRegistrationDTO.getPassword());
+            user.setFirstName(userRegistrationDTO.getFirstName());
+            user.setLastName(userRegistrationDTO.getLastName());
+            user.setPhone(userRegistrationDTO.getPhone());
+            user.setAddress(userRegistrationDTO.getAddress());
             
             userService.registerUser(user);
             redirectAttributes.addFlashAttribute("success", "Registration successful! Please login.");
@@ -63,10 +69,10 @@ public class AuthController {
         
         if (userOpt.isPresent()) {
             User user = userOpt.get();
-            UserDTO userDTO = userMapper.toDTO(user);
-            session.setAttribute("user", userDTO);
+            // Store only necessary info in session, not the entire entity
             session.setAttribute("userId", user.getId());
             session.setAttribute("username", user.getUsername());
+            session.setAttribute("userFirstName", user.getFirstName());
             redirectAttributes.addFlashAttribute("success", "Welcome back, " + user.getFirstName() + "!");
             return "redirect:/";
         } else {

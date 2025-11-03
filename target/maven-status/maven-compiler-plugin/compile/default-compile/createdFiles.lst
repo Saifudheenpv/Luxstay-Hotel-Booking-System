@@ -20,6 +20,7 @@ com/hotel/service/UserService.class
 com/hotel/service/ReviewService.class
 com/hotel/controller/AuthController.class
 com/hotel/controller/ReviewController.class
+com/hotel/dto/UserRegistrationDTO.class
 com/hotel/repository/RoomRepository.class
 com/hotel/util/SimplePasswordEncoder.class
 com/hotel/repository/UserRepository.class

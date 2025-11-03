@@ -1,3 +1,6 @@
 com/hotel/model/HotelModelTest.class
+com/hotel/service/UserServiceTest.class
+com/hotel/dto/UserRegistrationDTOTest.class
 com/hotel/model/UserModelTest.class
 com/hotel/SmokeTest.class
+com/hotel/util/SimplePasswordEncoderTest.class

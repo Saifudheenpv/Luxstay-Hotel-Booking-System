@@ -19,31 +19,31 @@ import java.util.Optional;
     private SimplePasswordEncoder passwordEncoder;
     
     public User registerUser(User user) {
-<span class="nc bnc" id="L22" title="All 2 branches missed.">        if (userRepository.existsByUsername(user.getUsername())) {</span>
+<span class="pc bpc" id="L22" title="1 of 2 branches missed.">        if (userRepository.existsByUsername(user.getUsername())) {</span>
 <span class="nc" id="L23">            throw new RuntimeException(&quot;Username already exists&quot;);</span>
         }
-<span class="nc bnc" id="L25" title="All 2 branches missed.">        if (userRepository.existsByEmail(user.getEmail())) {</span>
+<span class="pc bpc" id="L25" title="1 of 2 branches missed.">        if (userRepository.existsByEmail(user.getEmail())) {</span>
 <span class="nc" id="L26">            throw new RuntimeException(&quot;Email already exists&quot;);</span>
         }
         
         // Encode password
-<span class="nc" id="L30">        user.setPassword(passwordEncoder.encode(user.getPassword()));</span>
-<span class="nc" id="L31">        return userRepository.save(user);</span>
+<span class="fc" id="L30">        user.setPassword(passwordEncoder.encode(user.getPassword()));</span>
+<span class="fc" id="L31">        return userRepository.save(user);</span>
     }
     
     public Optional&lt;User&gt; authenticate(String username, String password) {
-<span class="nc" id="L35">        Optional&lt;User&gt; userOpt = userRepository.findByUsername(username);</span>
-<span class="nc bnc" id="L36" title="All 2 branches missed.">        if (userOpt.isPresent()) {</span>
-<span class="nc" id="L37">            User user = userOpt.get();</span>
-<span class="nc bnc" id="L38" title="All 2 branches missed.">            if (passwordEncoder.matches(password, user.getPassword())) {</span>
-<span class="nc" id="L39">                return Optional.of(user);</span>
+<span class="fc" id="L35">        Optional&lt;User&gt; userOpt = userRepository.findByUsername(username);</span>
+<span class="pc bpc" id="L36" title="1 of 2 branches missed.">        if (userOpt.isPresent()) {</span>
+<span class="fc" id="L37">            User user = userOpt.get();</span>
+<span class="pc bpc" id="L38" title="1 of 2 branches missed.">            if (passwordEncoder.matches(password, user.getPassword())) {</span>
+<span class="fc" id="L39">                return Optional.of(user);</span>
             }
         }
 <span class="nc" id="L42">        return Optional.empty();</span>
     }
     
     public Optional&lt;User&gt; findById(Long id) {
-<span class="nc" id="L46">        return userRepository.findById(id);</span>
+<span class="fc" id="L46">        return userRepository.findById(id);</span>
     }
     
     public User updateUser(User user) {

@@ -13,12 +13,18 @@ public class UserModelTest {
         user.setEmail("test@example.com");
         user.setFirstName("John");
         user.setLastName("Doe");
+        user.setPassword("password123");
+        user.setPhone("1234567890");
+        user.setAddress("Test Address");
 
         assertEquals(1L, user.getId());
         assertEquals("testuser", user.getUsername());
         assertEquals("test@example.com", user.getEmail());
         assertEquals("John", user.getFirstName());
         assertEquals("Doe", user.getLastName());
+        assertEquals("password123", user.getPassword());
+        assertEquals("1234567890", user.getPhone());
+        assertEquals("Test Address", user.getAddress());
     }
 
     @Test
@@ -26,10 +32,10 @@ public class UserModelTest {
         User user = new User();
         user.setId(1L);
         user.setUsername("testuser");
-        user.setPassword("password123");
+        user.setEmail("test@example.com");
 
         assertEquals(1L, user.getId());
         assertEquals("testuser", user.getUsername());
-        assertEquals("password123", user.getPassword());
+        assertEquals("test@example.com", user.getEmail());
     }
 }
