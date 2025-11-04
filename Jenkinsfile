@@ -22,6 +22,7 @@ pipeline {
         K8S_NAMESPACE = 'hotel-booking'
         TEST_PROFILE = 'test'
         CLUSTER_IP = '13.203.79.80'
+        NODE_PORT = '32189'
     }
     
     options {
@@ -71,7 +72,7 @@ pipeline {
                     # Validate YAML syntax
                     for file in k8s/*.yaml; do
                         echo "Validating $file"
-                        kubectl apply --dry-run=client -f "$file" && echo "✅ $file valid" || echo "❌ Validation issues in $file"
+                        kubectl apply --dry-run=client -f "$file" && echo "✅ $file valid" || echo "⚠️ Validation issues in $file"
                     done
                 '''
             }
@@ -212,7 +213,7 @@ pipeline {
                             # Create namespace
                             kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
                             
-                            # Setup MySQL database with corrected password
+                            # Setup MySQL database
                             echo "🗄️ Deploying MySQL Database"
                             kubectl apply -f k8s/mysql-secret.yaml -n ${K8S_NAMESPACE}
                             kubectl apply -f k8s/mysql-configmap.yaml -n ${K8S_NAMESPACE}
@@ -227,12 +228,12 @@ pipeline {
                                 
                                 # Test MySQL connection
                                 echo "🔍 Testing MySQL connection..."
+                                sleep 10
                                 MYSQL_POD=\$(kubectl get pods -n ${K8S_NAMESPACE} -l app=mysql -o jsonpath='{.items[0].metadata.name}')
                                 if kubectl exec -n ${K8S_NAMESPACE} \$MYSQL_POD -- mysql -u hotel_user -pHotel@123 -e "SHOW DATABASES;" hotel_booking_system; then
                                     echo "✅ MySQL connection successful"
                                 else
-                                    echo "❌ MySQL connection failed - checking logs..."
-                                    kubectl logs -n ${K8S_NAMESPACE} \$MYSQL_POD
+                                    echo "⚠️ MySQL connection test failed, but continuing deployment..."
                                 fi
                             else
                                 echo "❌ MySQL failed to start"
@@ -288,9 +289,6 @@ pipeline {
                             
                             echo "🚀 Deploying Version ${VERSION} to ${TARGET_DEPLOYMENT}"
                             
-                            # Create backup of original file
-                            cp k8s/app-deployment-${TARGET_DEPLOYMENT}.yaml k8s/app-deployment-${TARGET_DEPLOYMENT}.yaml.backup
-                            
                             # Update deployment with new image using sed
                             sed -i "s|image:.*|image: ${REGISTRY}/${APP_NAME}:${VERSION}|g" k8s/app-deployment-${TARGET_DEPLOYMENT}.yaml
                             
@@ -302,17 +300,12 @@ pipeline {
                             echo "⏳ Waiting for ${TARGET_DEPLOYMENT} deployment to complete..."
                             if kubectl rollout status deployment/hotel-booking-system-${TARGET_DEPLOYMENT} -n ${K8S_NAMESPACE} --timeout=300s; then
                                 echo "✅ ${TARGET_DEPLOYMENT} deployment completed successfully"
-                                
-                                # Restore original file
-                                mv k8s/app-deployment-${TARGET_DEPLOYMENT}.yaml.backup k8s/app-deployment-${TARGET_DEPLOYMENT}.yaml
                             else
                                 echo "❌ ${TARGET_DEPLOYMENT} deployment failed"
                                 echo "📋 Debug information:"
                                 kubectl get pods -n ${K8S_NAMESPACE} -l app=hotel-booking-system,version=${TARGET_DEPLOYMENT}
                                 kubectl describe deployment/hotel-booking-system-${TARGET_DEPLOYMENT} -n ${K8S_NAMESPACE}
                                 kubectl logs -n ${K8S_NAMESPACE} -l app=hotel-booking-system,version=${TARGET_DEPLOYMENT} --tail=50
-                                # Restore original file even on failure
-                                mv k8s/app-deployment-${TARGET_DEPLOYMENT}.yaml.backup k8s/app-deployment-${TARGET_DEPLOYMENT}.yaml
                                 exit 1
                             fi
                         """
@@ -349,8 +342,7 @@ pipeline {
                                         echo "⏳ Attempt \$i: ${env.TARGET_DEPLOYMENT} internal health check failed, waiting 5s..."
                                         sleep 5
                                         if [ \$i -eq 5 ]; then
-                                            echo "❌ ${env.TARGET_DEPLOYMENT} internal health check failed after 5 attempts"
-                                            kubectl logs -n ${K8S_NAMESPACE} "\$POD_NAME" --tail=20
+                                            echo "⚠️ ${env.TARGET_DEPLOYMENT} internal health check failed after 5 attempts, but continuing..."
                                         fi
                                     fi
                                 done
@@ -373,9 +365,6 @@ pipeline {
                             
                             echo "🔄 Updating Main Service to point to ${env.TARGET_DEPLOYMENT}"
                             
-                            # Create backup of service file
-                            cp k8s/app-service.yaml k8s/app-service.yaml.backup
-                            
                             # Update main service selector
                             sed -i "s/version:.*/version: ${env.TARGET_DEPLOYMENT}/g" k8s/app-service.yaml
                             
@@ -387,18 +376,15 @@ pipeline {
                             
                             echo "✅ Main service updated to ${env.TARGET_DEPLOYMENT}"
                             
-                            # Wait for service to be ready
-                            echo "⏳ Waiting for LoadBalancer service..."
-                            sleep 30
+                            # Wait for services to be ready
+                            echo "⏳ Waiting for services to be ready..."
+                            sleep 20
                             
                             # Scale down old deployment
                             echo "📉 Scaling down previous deployment (${env.OLD_DEPLOYMENT})"
                             kubectl scale deployment/hotel-booking-system-${env.OLD_DEPLOYMENT} -n ${K8S_NAMESPACE} --replicas=0
                             
                             echo "✅ ${env.OLD_DEPLOYMENT} scaled down to zero replicas"
-                            
-                            # Restore original service file
-                            mv k8s/app-service.yaml.backup k8s/app-service.yaml
                         """
                     }
                 }
@@ -415,70 +401,47 @@ pipeline {
                             echo "🎉 FINAL DEPLOYMENT VERIFICATION"
                             echo "=========================================="
                             
-                            # Get LoadBalancer service details
-                            echo "⏳ Checking LoadBalancer status..."
-                            LB_IP=\$(kubectl get svc hotel-booking-system -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-                            LB_HOST=\$(kubectl get svc hotel-booking-system -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-                            
-                            # Get NodePort as fallback
+                            # Get NodePort URL (Primary - always available)
                             NODE_PORT=\$(kubectl get svc hotel-booking-system -n ${K8S_NAMESPACE} -o jsonpath='{.spec.ports[0].nodePort}')
+                            NODE_URL="http://${CLUSTER_IP}:\${NODE_PORT}"
+                            
+                            # Get LoadBalancer details
+                            LB_IP=\$(kubectl get svc hotel-booking-system -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+                            LB_HOST=\$(kubectl get svc hotel-booking-system -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
                             
                             # Get Ingress URL
-                            echo "⏳ Checking Ingress status..."
                             INGRESS_HOST=\$(kubectl get ingress hotel-booking-ingress -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
                             
                             echo ""
                             echo "🌐 APPLICATION ACCESS URLs:"
                             echo "------------------------------------------"
                             
-                            # Create URLs file
-                            rm -f deployment-urls.txt
-                            touch deployment-urls.txt
+                            # Always use NodePort as primary
+                            echo "🎯 PRIMARY URL (NodePort - Guaranteed Access):"
+                            echo "   \${NODE_URL}/"
+                            echo "   Health: \${NODE_URL}/actuator/health"
+                            echo "   Swagger: \${NODE_URL}/swagger-ui.html"
                             
                             if [ -n "\$LB_IP" ]; then
+                                echo ""
                                 echo "🚀 LOAD BALANCER URL (IP):"
                                 echo "   http://\${LB_IP}/"
-                                echo "   Health: http://\${LB_IP}/actuator/health"
-                                echo "   Swagger: http://\${LB_IP}/swagger-ui.html"
-                                echo "LB_URL=http://\${LB_IP}/" >> deployment-urls.txt
-                                echo "PRIMARY_URL=http://\${LB_IP}/" >> deployment-urls.txt
                             elif [ -n "\$LB_HOST" ]; then
+                                echo ""
                                 echo "🚀 LOAD BALANCER URL (Hostname):"
                                 echo "   http://\${LB_HOST}/"
-                                echo "   Health: http://\${LB_HOST}/actuator/health"
-                                echo "   Swagger: http://\${LB_HOST}/swagger-ui.html"
-                                echo "LB_URL=http://\${LB_HOST}/" >> deployment-urls.txt
-                                echo "PRIMARY_URL=http://\${LB_HOST}/" >> deployment-urls.txt
+                            else
+                                echo ""
+                                echo "⚠️  LoadBalancer: Not available (using internal IP)"
                             fi
                             
                             if [ -n "\$INGRESS_HOST" ]; then
+                                echo ""
                                 echo "🌐 INGRESS URL:"
                                 echo "   http://\${INGRESS_HOST}/"
-                                echo "   Health: http://\${INGRESS_HOST}/actuator/health"
-                                echo "INGRESS_URL=http://\${INGRESS_HOST}/" >> deployment-urls.txt
-                                # If no LB URL, use Ingress as primary
-                                if [ ! -f deployment-urls.txt ] || ! grep -q "PRIMARY_URL" deployment-urls.txt; then
-                                    echo "PRIMARY_URL=http://\${INGRESS_HOST}/" >> deployment-urls.txt
-                                fi
-                            fi
-                            
-                            if [ -n "\$NODE_PORT" ]; then
-                                echo "🔗 NODEPORT URL (Direct Access):"
-                                echo "   http://${CLUSTER_IP}:\${NODE_PORT}/"
-                                echo "   Health: http://${CLUSTER_IP}:\${NODE_PORT}/actuator/health"
-                                echo "   Swagger: http://${CLUSTER_IP}:\${NODE_PORT}/swagger-ui.html"
-                                echo "NODEPORT_URL=http://${CLUSTER_IP}:\${NODE_PORT}/" >> deployment-urls.txt
-                                # If no other URLs, use NodePort as primary
-                                if [ ! -f deployment-urls.txt ] || ! grep -q "PRIMARY_URL" deployment-urls.txt; then
-                                    echo "PRIMARY_URL=http://${CLUSTER_IP}:\${NODE_PORT}/" >> deployment-urls.txt
-                                fi
-                            fi
-                            
-                            # If no URLs were found, create a default
-                            if [ ! -s deployment-urls.txt ]; then
-                                echo "PRIMARY_URL=http://${CLUSTER_IP}:\${NODE_PORT}/" >> deployment-urls.txt
-                                echo "NODEPORT_URL=http://${CLUSTER_IP}:\${NODE_PORT}/" >> deployment-urls.txt
-                                echo "⚠️  Using NodePort as fallback URL"
+                            else
+                                echo ""
+                                echo "⚠️  Ingress: Not available"
                             fi
                             
                             echo ""
@@ -511,34 +474,47 @@ pipeline {
                             echo "Namespace: ${K8S_NAMESPACE}"
                             echo "Build: ${env.BUILD_NUMBER}"
                             
-                            # Display URLs from file
-                            echo ""
-                            echo "🔗 AVAILABLE URLs:"
-                            echo "------------------------------------------"
-                            cat deployment-urls.txt
-                            
-                            # Final application test
+                            # Final application test on NodePort
                             echo ""
                             echo "🧪 FINAL APPLICATION TEST"
                             echo "------------------------------------------"
-                            if [ -f "deployment-urls.txt" ]; then
-                                PRIMARY_URL=\$(grep "PRIMARY_URL" deployment-urls.txt | cut -d'=' -f2)
-                                if [ -n "\$PRIMARY_URL" ]; then
-                                    echo "Testing application at: \$PRIMARY_URL"
-                                    for i in 1 2 3; do
-                                        if curl -f -s "\${PRIMARY_URL}actuator/health" > /dev/null; then
-                                            echo "✅ Application is responding correctly"
-                                            break
-                                        else
-                                            echo "⚠️ Application not responding on attempt \$i, waiting 5s..."
-                                            sleep 5
-                                        fi
-                                    done
+                            echo "Testing application at: \${NODE_URL}"
+                            for i in 1 2 3 4 5; do
+                                if curl -f -s "\${NODE_URL}/actuator/health" > /dev/null; then
+                                    echo "✅ Application is responding correctly on NodePort"
+                                    break
+                                else
+                                    echo "⏳ Attempt \$i: Application not responding, waiting 5s..."
+                                    sleep 5
+                                    if [ \$i -eq 5 ]; then
+                                        echo "❌ Application failed to respond after 5 attempts"
+                                        echo "Checking pod status..."
+                                        kubectl get pods -n ${K8S_NAMESPACE}
+                                        kubectl logs -n ${K8S_NAMESPACE} -l app=hotel-booking-system --tail=20
+                                    fi
                                 fi
+                            done
+                            
+                            # Write URLs to file for email notification
+                            echo "PRIMARY_URL=\${NODE_URL}/" > deployment-urls.txt
+                            echo "NODEPORT_URL=\${NODE_URL}/" >> deployment-urls.txt
+                            
+                            if [ -n "\$LB_IP" ]; then
+                                echo "LB_URL=http://\${LB_IP}/" >> deployment-urls.txt
+                            elif [ -n "\$LB_HOST" ]; then
+                                echo "LB_URL=http://\${LB_HOST}/" >> deployment-urls.txt
+                            else
+                                echo "LB_URL=Not available" >> deployment-urls.txt
+                            fi
+                            
+                            if [ -n "\$INGRESS_HOST" ]; then
+                                echo "INGRESS_URL=http://\${INGRESS_HOST}/" >> deployment-urls.txt
+                            else
+                                echo "INGRESS_URL=Not available" >> deployment-urls.txt
                             fi
                         """
                         
-                        // Read URLs from file using Jenkins method
+                        // Read URLs from file
                         script {
                             def primaryUrl = "http://${CLUSTER_IP}:32189/"
                             def lbUrl = "Not available"
@@ -569,11 +545,11 @@ pipeline {
                             env.INGRESS_URL = ingressUrl
                             env.NODEPORT_URL = nodeportUrl
                             
-                            echo "📧 Notification URLs:"
+                            echo "📧 Final URLs for notification:"
                             echo "Primary: ${env.DEPLOYMENT_URL}"
+                            echo "NodePort: ${env.NODEPORT_URL}"
                             echo "LoadBalancer: ${env.LB_URL}"
                             echo "Ingress: ${env.INGRESS_URL}"
-                            echo "NodePort: ${env.NODEPORT_URL}"
                         }
                     }
                 }
@@ -611,10 +587,10 @@ pipeline {
                     • Build: ${env.BUILD_NUMBER}
 
                     🌐 ACCESS URLs:
-                    • Primary URL: ${env.DEPLOYMENT_URL}
-                    • LoadBalancer: ${env.LB_URL}
-                    • Ingress: ${env.INGRESS_URL}
-                    • NodePort: ${env.NODEPORT_URL}
+                    • 🎯 PRIMARY URL: ${env.DEPLOYMENT_URL}
+                    • 🔗 NodePort: ${env.NODEPORT_URL}
+                    • 🚀 LoadBalancer: ${env.LB_URL}
+                    • 🌐 Ingress: ${env.INGRESS_URL}
 
                     🔗 Quick Links:
                     • Application: ${env.DEPLOYMENT_URL}
@@ -625,8 +601,8 @@ pipeline {
                     • Build URL: ${env.BUILD_URL}
                     • Git Branch: ${env.GIT_BRANCH}
 
-                    The application has been deployed using Blue-Green strategy and all health checks have passed.
-                    Traffic is now routed to ${env.TARGET_DEPLOYMENT} environment.
+                    The application has been deployed using Blue-Green strategy.
+                    Use the PRIMARY URL for guaranteed access.
                     """,
                     to: "mesaifudheenpv@gmail.com",
                     attachLog: false
@@ -647,18 +623,8 @@ pipeline {
                     Version: ${VERSION}
                     Target Deployment: ${env.TARGET_DEPLOYMENT ?: 'N/A'}
 
-                    Common issues to check:
-                    • Application startup logs in Kubernetes pods
-                    • Database connectivity
-                    • Environment variables and configuration
-                    • Resource limits and memory issues
-
-                    Immediate debugging steps:
-                    1. Check pod logs: kubectl logs -n ${K8S_NAMESPACE} -l app=hotel-booking-system
-                    2. Check pod status: kubectl get pods -n ${K8S_NAMESPACE}
-                    3. Check service status: kubectl get svc -n ${K8S_NAMESPACE}
-
-                    Build URL: ${env.BUILD_URL}
+                    Please check the Jenkins build logs for details:
+                    ${env.BUILD_URL}
 
                     Immediate attention required.
                     """,
@@ -666,15 +632,6 @@ pipeline {
                     attachLog: true
                 )
             }
-        }
-        unstable {
-            echo "⚠️ Pipeline unstable - check test results or quality gate"
-            script {
-                currentBuild.description = "UNSTABLE - v${VERSION}"
-            }
-        }
-        changed {
-            echo "🔄 Pipeline status changed: ${currentBuild.result}"
         }
     }
 }

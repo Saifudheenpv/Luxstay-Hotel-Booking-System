@@ -4,7 +4,6 @@ metadata:
   name: hotel-booking-ingress
   namespace: hotel-booking
   annotations:
-    # AWS ALB Specific annotations
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/healthcheck-path: /actuator/health
@@ -14,9 +13,7 @@ metadata:
     alb.ingress.kubernetes.io/success-codes: '200-299'
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
     alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=60
-    # For Nginx Ingress (alternative)
-    kubernetes.io/ingress.class: "alb"
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    alb.ingress.kubernetes.io/tags: Environment=production,Team=devops
 spec:
   ingressClassName: alb
   rules:
