@@ -130,7 +130,7 @@ class ProfileControllerTest {
 
         assertEquals("redirect:/profile", result);
         verify(userService).updateUser(user);
-        verify(session).setAttribute("user", userDTO);
+        verify(session).setAttribute("currentUser", userDTO);
         verify(redirectAttributes).addFlashAttribute("success", "Profile updated successfully!");
     }
 
