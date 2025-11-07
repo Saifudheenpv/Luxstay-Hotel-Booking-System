@@ -1,30 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: hotel-booking-system-blue
+  name: hotel-booking-blue
   namespace: hotel-booking
   labels:
-    app: hotel-booking-system
+    app: hotel-booking
     version: blue
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: hotel-booking-system
+      app: hotel-booking
       version: blue
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
   template:
     metadata:
       labels:
-        app: hotel-booking-system
+        app: hotel-booking
         version: blue
     spec:
       containers:
-      - name: app
+      - name: hotel-booking
         image: saifudheenpv/hotel-booking-system:latest
         ports:
         - containerPort: 8080
@@ -32,11 +27,27 @@ spec:
         - name: SPRING_PROFILES_ACTIVE
           value: "prod"
         - name: SPRING_DATASOURCE_URL
-          value: "jdbc:mysql://mysql-service:3306/hotel_booking_system?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
+          value: "jdbc:mysql://mysql-service.hotel-booking.svc.cluster.local:3306/hotel_booking_system?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
         - name: SPRING_DATASOURCE_USERNAME
           value: "hotel_user"
         - name: SPRING_DATASOURCE_PASSWORD
           value: "Hotel@123"
+        - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+          value: "update"
+        - name: SPRING_JPA_SHOW_SQL
+          value: "false"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 120
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 5
         resources:
           requests:
             memory: "512Mi"
@@ -44,23 +55,3 @@ spec:
           limits:
             memory: "1Gi"
             cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /actuator/health
-            port: 8080
-          initialDelaySeconds: 60
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /actuator/health
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 3
-        lifecycle:
-          preStop:
-            exec:
-              command: ["sh", "-c", "sleep 30"]

@@ -1,3 +1,24 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secret
+  namespace: hotel-booking
+type: Opaque
+data:
+  password: SG90ZWxAMTIz
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+  namespace: hotel-booking
+data:
+  init.sql: |
+    CREATE DATABASE IF NOT EXISTS hotel_booking_system;
+    CREATE USER IF NOT EXISTS 'hotel_user'@'%' IDENTIFIED BY 'Hotel@123';
+    GRANT ALL PRIVILEGES ON hotel_booking_system.* TO 'hotel_user'@'%';
+    FLUSH PRIVILEGES;
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -8,8 +29,6 @@ spec:
   selector:
     matchLabels:
       app: mysql
-  strategy:
-    type: Recreate
   template:
     metadata:
       labels:
@@ -20,17 +39,11 @@ spec:
         image: mysql:8.0
         env:
         - name: MYSQL_ROOT_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: mysql-secret
-              key: root-password
+          value: "rootpassword"
         - name: MYSQL_DATABASE
           value: "hotel_booking_system"
         - name: MYSQL_USER
-          valueFrom:
-            secretKeyRef:
-              name: mysql-secret
-              key: username
+          value: "hotel_user"
         - name: MYSQL_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -39,39 +52,9 @@ spec:
         ports:
         - containerPort: 3306
         volumeMounts:
-        - name: mysql-data
-          mountPath: /var/lib/mysql
-        - name: mysql-initdb
+        - name: init-script
           mountPath: /docker-entrypoint-initdb.d
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
-            memory: "1Gi"
-            cpu: "500m"
-        livenessProbe:
-          exec:
-            command:
-            - sh
-            - -c
-            - "mysqladmin ping -u root -p${MYSQL_ROOT_PASSWORD}"
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-        readinessProbe:
-          exec:
-            command:
-            - sh
-            - -c
-            - "mysqladmin ping -u root -p${MYSQL_ROOT_PASSWORD}"
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          timeoutSeconds: 3
       volumes:
-      - name: mysql-data
-        persistentVolumeClaim:
-          claimName: mysql-pvc
-      - name: mysql-initdb
+      - name: init-script
         configMap:
           name: mysql-config
