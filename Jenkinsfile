@@ -96,12 +96,11 @@ pipeline {
                     echo "📊 Publishing test results..."
                     junit 'target/surefire-reports/*.xml'
                     
-                    // FIXED: Correct jacoco syntax
-                    jacoco(
-                        execPattern: 'target/jacoco.exec',
-                        classPattern: 'target/classes',
-                        sourcePattern: 'src/main/java'
-                    )
+                    // FIXED: Alternative JaCoCo implementation
+                    script {
+                        // Generate JaCoCo report for SonarQube
+                        sh 'mvn jacoco:report -DskipTests'
+                    }
                 }
                 success {
                     echo "✅ All tests passed!"
@@ -242,8 +241,8 @@ pipeline {
                     sh '''
                     if ! command -v trivy &> /dev/null; then
                         echo "Installing Trivy..."
-                        wget -qO- https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
-                        sudo mv ./trivy /usr/local/bin/ || echo "Trivy installation completed"
+                        wget -q https://github.com/aquasecurity/trivy/releases/download/v0.45.1/trivy_0.45.1_Linux-64bit.deb
+                        sudo dpkg -i trivy_0.45.1_Linux-64bit.deb || echo "Trivy installation completed"
                     fi
                     '''
                     
@@ -313,9 +312,7 @@ pipeline {
                     // Update deployment with current image tag
                     sh """
                     cp k8s/app-deployment.yaml k8s/app-deployment-${APP_VERSION}.yaml
-                    sed -i 's|IMAGE_TAG|${APP_VERSION}|g' k8s/app-deployment-${APP_VERSION}.yaml
-                    sed -i 's|DOCKER_NAMESPACE|${DOCKER_NAMESPACE}|g' k8s/app-deployment-${APP_VERSION}.yaml
-                    sed -i 's|APP_NAME|${APP_NAME}|g' k8s/app-deployment-${APP_VERSION}.yaml
+                    sed -i 's|saifudheenpv/hotel-booking-system:latest|${DOCKER_NAMESPACE}/${APP_NAME}:${APP_VERSION}|g' k8s/app-deployment-${APP_VERSION}.yaml
                     """
                     
                     // Deploy application
@@ -388,7 +385,7 @@ pipeline {
         always {
             echo "📋 Pipeline execution completed!"
             
-            // FIXED: Correct publishHTML syntax
+            // Publish security report
             publishHTML([
                 allowMissing: true,
                 alwaysLinkToLastBuild: true,
