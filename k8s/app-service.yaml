@@ -3,10 +3,15 @@ kind: Service
 metadata:
   name: hotel-booking-service
   namespace: hotel-booking
+  labels:
+    app: hotel-booking
 spec:
   selector:
     app: hotel-booking
+    version: blue  # This will be switched between blue/green
   ports:
-  - port: 8080
-    targetPort: 8080
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
   type: LoadBalancer
