@@ -234,24 +234,36 @@ pipeline {
             steps {
                 withCredentials([
                     [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-eks-creds'],
-                    file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')
+                    file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
                 ]) {
-                    sh '''
-                    echo "🔐 Configuring EKS kubeconfig..."
-                    aws sts get-caller-identity
-                    aws eks update-kubeconfig --name devops-cluster --region ap-south-1
-                    kubectl config current-context
+                    script {
+                        echo "🔐 Configuring temporary kubeconfig..."
+                        sh '''
+                        mkdir -p $WORKSPACE/.kube
+                        cp $KUBECONFIG_FILE $WORKSPACE/.kube/config
+                        export KUBECONFIG=$WORKSPACE/.kube/config
 
-                    echo "🚀 Deploying resources..."
-                    kubectl create namespace hotel-booking --dry-run=client -o yaml | kubectl apply -f - || true
-                    kubectl apply -f k8s/mysql-secret.yaml -n hotel-booking --validate=false || true
-                    kubectl apply -f k8s/mysql-config.yaml -n hotel-booking --validate=false || true
-                    kubectl apply -f k8s/mysql-deployment.yaml -n hotel-booking --validate=false || true
-                    kubectl apply -f k8s/mysql-service.yaml -n hotel-booking --validate=false || true
-                    '''
-                }
+                        echo "✅ Using kubeconfig at: $KUBECONFIG"
+                        aws sts get-caller-identity
+                        aws eks update-kubeconfig --name devops-cluster --region ap-south-1 --kubeconfig $KUBECONFIG
+                        kubectl config current-context
+                        kubectl get nodes
+                        '''
+
+                        echo "🎯 Deploying to Kubernetes..."
+                        sh '''
+                        export KUBECONFIG=$WORKSPACE/.kube/config
+                        kubectl create namespace hotel-booking --dry-run=client -o yaml | kubectl apply -f - || true
+                        kubectl apply -f k8s/mysql-secret.yaml -n hotel-booking --validate=false || true
+                        kubectl apply -f k8s/mysql-config.yaml -n hotel-booking --validate=false || true
+                        kubectl apply -f k8s/mysql-deployment.yaml -n hotel-booking --validate=false || true
+                        kubectl apply -f k8s/mysql-service.yaml -n hotel-booking --validate=false || true
+                        '''
             }
         }
+    }
+}
+
 
         /* 🔍 VALIDATION */
         stage('Post-Deployment Validation') {
