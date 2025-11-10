@@ -1,229 +1,231 @@
 pipeline {
-    agent any
+  agent any
 
-    tools {
-        jdk 'JDK17'
-        maven 'Maven3'
+  tools {
+    jdk 'JDK17'
+    maven 'Maven3'
+  }
+
+  environment {
+    SONARQUBE_URL   = '13.203.26.99'
+    DOCKER_NAMESPACE = 'saifudheenpv'
+    APP_NAME        = 'hotel-booking-system'
+    APP_VERSION     = "${env.BUILD_ID}"
+    K8S_NAMESPACE   = 'hotel-booking'
+    REGION          = 'ap-south-1'
+    CLUSTER_NAME    = 'devops-cluster'
+  }
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+    timeout(time: 45, unit: 'MINUTES')
+  }
+
+  parameters {
+    choice(name: 'DEPLOYMENT_STRATEGY', choices: ['blue-green', 'rolling'], description: 'Select deployment strategy')
+    booleanParam(name: 'AUTO_SWITCH', defaultValue: true, description: 'Auto switch traffic to new version?')
+    booleanParam(name: 'AUTO_MIGRATE_JAKARTA', defaultValue: true, description: 'Auto-convert javax.* imports to jakarta.*')
+  }
+
+  stages {
+    /* ---------------- ENV ---------------- */
+    stage('Environment Setup') {
+      steps {
+        sh '''
+          echo "Java:"
+          java -version
+          echo "Maven:"
+          mvn -version
+          echo "Docker:"
+          docker --version || true
+          echo "Kubectl:"
+          kubectl version --client || true
+        '''
+      }
     }
 
-    environment {
-        SONARQUBE_URL = '13.203.26.99'
-        DOCKER_NAMESPACE = "saifudheenpv"
-        APP_NAME = 'hotel-booking-system'
-        APP_VERSION = "${env.BUILD_ID}"
-        K8S_NAMESPACE = 'hotel-booking'
-        REGION = 'ap-south-1'
-        CLUSTER_NAME = 'devops-cluster'
+    /* ---------------- CODE ---------------- */
+    stage('Checkout Code') {
+      steps {
+        checkout scm
+      }
     }
 
-    triggers {
-        githubPush()
+    /* ---------------- QUICK MIGRATION ---------------- */
+    stage('Auto-Migrate to Jakarta') {
+      when { expression { params.AUTO_MIGRATE_JAKARTA } }
+      steps {
+        sh '''
+          echo "Auto-migrating javax.* -> jakarta.* (safe replacements)"
+          find src -name "*.java" -type f -print0 | xargs -0 sed -i \
+            -e 's/import javax\\.persistence\\./import jakarta.persistence./g' \
+            -e 's/import javax\\.validation\\./import jakarta.validation./g' \
+            -e 's/import javax\\.servlet\\./import jakarta.servlet./g' \
+            -e 's/import javax\\.annotation\\./import jakarta.annotation./g'
+
+          # If you have thymeleaf Spring5 imports in custom config, update:
+          find src -name "*.java" -type f -print0 | xargs -0 sed -i \
+            -e 's/org\\.thymeleaf\\.spring5/org.thymeleaf.spring6/g' \
+            -e 's/org\\.thymeleaf\\.spring5\\.templateresolver/org.thymeleaf.spring6.templateresolver/g'
+        '''
+      }
     }
 
-    options {
-        timestamps()
-        disableConcurrentBuilds()
-        timeout(time: 45, unit: 'MINUTES')
+    /* ---------------- BUILD+TEST+OWASP ---------------- */
+    stage('Build, Test & OWASP') {
+      steps {
+        withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
+          sh '''
+            # Ensure suppression file exists
+            if [ ! -f dependency-check-suppressions.xml ]; then
+              cat > dependency-check-suppressions.xml <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+  <suppress>
+    <notes>False-positive noise on spring-web</notes>
+    <packageUrl regex="true">^pkg:maven/org\\.springframework/spring-web@.*$</packageUrl>
+    <cve>CVE-2016-1000027</cve>
+  </suppress>
+</suppressions>
+EOF
+            fi
+
+            # Clean and compile with tests; server.port=0 avoids Jenkins 8080
+            mvn -U -B clean verify \
+              -Dserver.port=0 \
+              -Dnvd.api.key="$NVD_API_KEY"
+          '''
+        }
+      }
     }
 
-    parameters {
-        choice(name: 'DEPLOYMENT_STRATEGY', choices: ['blue-green', 'rolling'], description: 'Select deployment strategy')
-        booleanParam(name: 'AUTO_SWITCH', defaultValue: true, description: 'Auto switch traffic to new version?')
+    /* ---------------- SONAR ---------------- */
+    stage('SonarQube Analysis') {
+      steps {
+        withSonarQubeEnv('Sonar-Server') {
+          withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_AUTH_TOKEN')]) {
+            sh '''
+              mvn -B sonar:sonar \
+                -Dsonar.projectKey='hotel-booking-system' \
+                -Dsonar.host.url=http://${SONARQUBE_URL}:9000 \
+                -Dsonar.login="$SONAR_AUTH_TOKEN"
+            '''
+          }
+        }
+      }
     }
 
-    stages {
-
-        /* -------------------------------------------------------
-         🔧 ENVIRONMENT SETUP
-        ------------------------------------------------------- */
-        stage('Environment Setup') {
-            steps {
-                script {
-                    echo "🔧 Setting up environment..."
-                    sh '''
-                    echo "🧹 Checking environment and cleaning up port 8080..."
-                    sudo fuser -k 8080/tcp || true
-
-                    java -version
-                    mvn --version
-                    docker --version
-                    kubectl version --client
-                    '''
-                }
-            }
+    /* ---------------- DOCKER ---------------- */
+    stage('Docker Build & Push') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'docker-token', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+          sh '''
+            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+            docker build -t ${DOCKER_NAMESPACE}/${APP_NAME}:${APP_VERSION} .
+            docker tag ${DOCKER_NAMESPACE}/${APP_NAME}:${APP_VERSION} ${DOCKER_NAMESPACE}/${APP_NAME}:latest
+            docker push ${DOCKER_NAMESPACE}/${APP_NAME}:${APP_VERSION}
+            docker push ${DOCKER_NAMESPACE}/${APP_NAME}:latest
+          '''
         }
-
-        /* -------------------------------------------------------
-         📦 CHECKOUT SOURCE CODE
-        ------------------------------------------------------- */
-        stage('Checkout Code') {
-            steps {
-                echo "📦 Checking out code from repository..."
-                checkout scm
-            }
-        }
-
-        /* -------------------------------------------------------
-         🧪 BUILD, TEST, AND SECURITY SCAN
-        ------------------------------------------------------- */
-        stage('Build, Test & Security Scan') {
-            steps {
-                withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
-                    echo "🧪 Running Maven build, skipping SmokeTest (Jenkins uses port 8080), and running OWASP scan..."
-                    sh '''
-                    mvn clean verify -U -Dtest=!SmokeTest -Dnvd.api.key=$NVD_API_KEY
-                    '''
-                }
-            }
-        }
-
-        /* -------------------------------------------------------
-         🔎 SONARQUBE ANALYSIS
-        ------------------------------------------------------- */
-        stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('Sonar-Server') {
-                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_AUTH_TOKEN')]) {
-                        echo "🔎 Running SonarQube static code analysis..."
-                        sh '''
-                        mvn sonar:sonar \
-                          -Dsonar.projectKey=${APP_NAME} \
-                          -Dsonar.host.url=http://${SONARQUBE_URL}:9000 \
-                          -Dsonar.login=$SONAR_AUTH_TOKEN
-                        '''
-                    }
-                }
-            }
-        }
-
-        /* -------------------------------------------------------
-         🐳 DOCKER BUILD & PUSH
-        ------------------------------------------------------- */
-        stage('Docker Build & Push') {
-            steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'docker-token', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        echo "🐳 Building and pushing Docker image..."
-                        sh '''
-                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                        docker build -t ${DOCKER_NAMESPACE}/${APP_NAME}:${APP_VERSION} .
-                        docker tag ${DOCKER_NAMESPACE}/${APP_NAME}:${APP_VERSION} ${DOCKER_NAMESPACE}/${APP_NAME}:latest
-                        docker push ${DOCKER_NAMESPACE}/${APP_NAME}:${APP_VERSION}
-                        docker push ${DOCKER_NAMESPACE}/${APP_NAME}:latest
-                        '''
-                    }
-                }
-            }
-        }
-
-        /* -------------------------------------------------------
-         🚀 DEPLOY TO EKS
-        ------------------------------------------------------- */
-        stage('Deploy to EKS') {
-            steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-eks-creds'],
-                    file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
-                ]) {
-                    script {
-                        echo "🚀 Deploying to Amazon EKS..."
-                        sh '''
-                        mkdir -p $WORKSPACE/.kube
-                        cp $KUBECONFIG_FILE $WORKSPACE/.kube/config
-                        chmod 600 $WORKSPACE/.kube/config
-                        export KUBECONFIG=$WORKSPACE/.kube/config
-
-                        aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}
-
-                        kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
-                        kubectl apply -f k8s/mysql-deployment.yaml -n ${K8S_NAMESPACE}
-                        kubectl apply -f k8s/mysql-service.yaml -n ${K8S_NAMESPACE}
-                        kubectl apply -f k8s/app-deployment-blue.yaml -n ${K8S_NAMESPACE}
-                        kubectl apply -f k8s/app-service.yaml -n ${K8S_NAMESPACE}
-                        '''
-                    }
-                }
-            }
-        }
-
-        /* -------------------------------------------------------
-         🔁 BLUE-GREEN DEPLOYMENT SWITCH
-        ------------------------------------------------------- */
-        stage('Blue-Green Switch') {
-            when { expression { params.DEPLOYMENT_STRATEGY == 'blue-green' && params.AUTO_SWITCH } }
-            steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-eks-creds'],
-                    file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
-                ]) {
-                    script {
-                        echo "🔁 Switching traffic to GREEN environment..."
-                        sh '''
-                        export KUBECONFIG=$WORKSPACE/.kube/config
-                        aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}
-
-                        kubectl patch service hotel-booking-service -n ${K8S_NAMESPACE} \
-                          -p '{"spec":{"selector":{"app":"hotel-booking","version":"green"}}}'
-                        '''
-                    }
-                }
-            }
-        }
-
-        /* -------------------------------------------------------
-         🔍 POST DEPLOYMENT VALIDATION
-        ------------------------------------------------------- */
-        stage('Post-Deployment Validation') {
-            steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-eks-creds'],
-                    file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
-                ]) {
-                    script {
-                        echo "🔍 Validating EKS resources and health check..."
-                        sh '''
-                        export KUBECONFIG=$WORKSPACE/.kube/config
-                        aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}
-
-                        echo "✅ Checking Pods and Services..."
-                        kubectl get pods -n ${K8S_NAMESPACE}
-                        kubectl get svc -n ${K8S_NAMESPACE}
-
-                        echo "🌐 Checking application health..."
-                        APP_URL=$(kubectl get svc hotel-booking-service -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-                        curl -I http://$APP_URL/actuator/health || echo "⚠️ Health endpoint not reachable yet"
-                        '''
-                    }
-                }
-            }
-        }
+      }
     }
 
-    /* -------------------------------------------------------
-     🧹 POST ACTIONS
-    ------------------------------------------------------- */
-    post {
-        success {
-            echo "🎉 SUCCESS: Build, Scan, SonarQube, Docker, and EKS deployment completed!"
+    /* ---------------- DEPLOY ---------------- */
+    stage('Deploy to EKS') {
+      steps {
+        withCredentials([
+          [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-eks-creds'],
+          file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
+        ]) {
+          sh '''
+            mkdir -p $WORKSPACE/.kube
+            cp $KUBECONFIG_FILE $WORKSPACE/.kube/config
+            chmod 600 $WORKSPACE/.kube/config
+            export KUBECONFIG=$WORKSPACE/.kube/config
+
+            aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}
+
+            kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+            kubectl apply -f k8s/mysql-deployment.yaml -n ${K8S_NAMESPACE}
+            kubectl apply -f k8s/mysql-service.yaml -n ${K8S_NAMESPACE}
+            kubectl apply -f k8s/app-deployment-blue.yaml -n ${K8S_NAMESPACE}
+            kubectl apply -f k8s/app-service.yaml -n ${K8S_NAMESPACE}
+          '''
         }
-        failure {
-            script {
-                echo "❌ DEPLOYMENT FAILED: Rolling back to BLUE version..."
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-eks-creds'],
-                    file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
-                ]) {
-                    sh '''
-                    export KUBECONFIG=$WORKSPACE/.kube/config
-                    aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}
-                    kubectl patch service hotel-booking-service -n ${K8S_NAMESPACE} \
-                      -p '{"spec":{"selector":{"app":"hotel-booking","version":"blue"}}}' || true
-                    '''
-                }
-            }
-        }
-        always {
-            cleanWs()
-        }
+      }
     }
+
+    /* ---------------- SWITCH ---------------- */
+    stage('Blue-Green Switch') {
+      when { expression { params.DEPLOYMENT_STRATEGY == 'blue-green' && params.AUTO_SWITCH } }
+      steps {
+        withCredentials([
+          [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-eks-creds'],
+          file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
+        ]) {
+          sh '''
+            export KUBECONFIG=$WORKSPACE/.kube/config
+            aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}
+
+            kubectl patch service hotel-booking-service -n ${K8S_NAMESPACE} \
+              -p '{"spec":{"selector":{"app":"hotel-booking","version":"green"}}}'
+          '''
+        }
+      }
+    }
+
+    /* ---------------- VALIDATE ---------------- */
+    stage('Post-Deployment Validation') {
+      steps {
+        withCredentials([
+          [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-eks-creds'],
+          file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
+        ]) {
+          sh '''
+            export KUBECONFIG=$WORKSPACE/.kube/config
+            aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}
+
+            echo "Resources:"
+            kubectl get pods -n ${K8S_NAMESPACE}
+            kubectl get svc -n ${K8S_NAMESPACE}
+
+            echo "Wait 15s for pods to warm up..."
+            sleep 15
+
+            APP_URL=$(kubectl get svc hotel-booking-service -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+            echo "Health check at: http://$APP_URL/actuator/health"
+            curl -I --max-time 10 "http://$APP_URL/actuator/health" || echo "Health not ready yet"
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      echo "✅ SUCCESS: Built, scanned, analyzed, pushed and deployed!"
+      cleanWs()
+    }
+    failure {
+      script {
+        echo "❌ FAILED: Rolling back service to BLUE..."
+        withCredentials([
+          [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-eks-creds'],
+          file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
+        ]) {
+          sh '''
+            export KUBECONFIG=$WORKSPACE/.kube/config
+            aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}
+            kubectl patch service hotel-booking-service -n ${K8S_NAMESPACE} \
+              -p '{"spec":{"selector":{"app":"hotel-booking","version":"blue"}}}' || true
+          '''
+        }
+      }
+      cleanWs()
+    }
+    always {
+      echo "🏁 Pipeline finished."
+    }
+  }
 }
