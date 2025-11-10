@@ -90,17 +90,13 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
           sh '''
-            # Run OWASP check with COMPLETE Sonatype OSS Index disabling
-            echo "Running OWASP dependency check with OSS Index disabled..."
+            # Run OWASP check with COMPLETE configuration to avoid OSS Index issues
+            echo "Running OWASP dependency check with enhanced configuration..."
             mvn -B org.owasp:dependency-check-maven:check \
               -Dnvd.api.key="$NVD_API_KEY" \
               -DfailBuildOnCVSS=11 \
               -DcveValidForHours=72 \
-              -DskipSystemScope=true \
-              --define dependency-check.ossindex.enabled=false \
-              --define dependency-check.retirejs.enabled=false \
-              --define dependency-check.nodeaudit.enabled=false \
-              --define dependency-check.nodeanalyzer.enabled=false
+              -DskipSystemScope=true
           '''
         }
       }
