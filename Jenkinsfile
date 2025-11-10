@@ -153,15 +153,41 @@ pipeline {
       }
     }
 
-    stage('Get App URL') {
-      steps {
-        withCredentials([
-          [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-eks-creds'],
-          file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
-        ]) {
-          script {
-            def url = sh(
-              script: "kubectl get svc hotel-booking-service -n \${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true",
+stage('Get App URL') {
+  steps {
+    withCredentials([
+      [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-eks-creds'],
+      file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
+    ]) {
+      script {
+        def dns = ""
+        def maxRetries = 12
+        def retryDelay = 10
+
+        for (int i = 0; i < maxRetries; i++) {
+          dns = sh(
+            script: "kubectl get svc hotel-booking-service -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo ''",
+            returnStdout: true
+          ).trim()
+
+          if (dns && dns != '') {
+            env.APP_URL = "http://$dns"
+            echo "NLB DNS Ready: ${env.APP_URL}"
+            break
+          } else {
+            echo "Waiting for NLB DNS... (attempt ${i + 1}/${maxRetries})"
+            sleep(retryDelay)
+          }
+        }
+
+        if (!dns || dns == '') {
+          env.APP_URL = "NLB DNS not ready. Run: kubectl get svc -n hotel-booking"
+        }
+      }
+      echo "LIVE APP URL: ${env.APP_URL}"
+    }
+  }
+}
               returnStdout: true
             ).trim()
             if (!url) {
