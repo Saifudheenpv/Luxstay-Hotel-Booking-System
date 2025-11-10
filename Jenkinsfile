@@ -167,10 +167,10 @@ pipeline {
           sh "kubectl config current-context"
           sh "kubectl get ns ${K8S_NAMESPACE}"
 
-          // FULL SERVICE OUTPUT IN LOG
+          // FULL SERVICE OUTPUT IN LOG — YOU WANT THIS
           sh "kubectl get svc hotel-booking-service -n hotel-booking"
 
-          // Extract URL for post
+          // EXTRACT EXTERNAL-IP AND SET APP_URL (HIDDEN FROM LOG)
           script {
             def externalIp = sh(
               script: "kubectl get svc hotel-booking-service -n hotel-booking -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo 'NOT-READY'",
