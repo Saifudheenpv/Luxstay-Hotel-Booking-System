@@ -163,22 +163,28 @@ pipeline {
             sh 'mkdir -p .kube && cp "$KUBECONFIG_FILE" .kube/config && chmod 600 .kube/config'
             sh 'export KUBECONFIG=.kube/config'
 
-            def rawOutput = sh(
-              script: "kubectl get svc hotel-booking-service -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo 'NOT READY'",
+            // ONLY THIS — RAW KUBECTL OUTPUT
+            sh '''
+              echo "=== KUBECTL OUTPUT ==="
+              kubectl get svc hotel-booking-service -n hotel-booking \
+                -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "NOT READY"
+              echo "======================="
+            '''
+
+            def dns = sh(
+              script: "kubectl get svc hotel-booking-service -n hotel-booking -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo 'NOT READY'",
               returnStdout: true
             ).trim()
 
-            echo "KUBECTL OUTPUT: ${rawOutput}"
-
-            if (rawOutput && rawOutput =~ /elb\.ap-south-1\.amazonaws\.com/) {
-              env.APP_URL = "http://$rawOutput"
-              echo "LIVE URL DETECTED: ${env.APP_URL}"
+            if (dns && dns.contains('elb.ap-south-1')) {
+              env.APP_URL = "http://$dns"
+              echo "LIVE URL: ${env.APP_URL}"
             } else {
-              env.APP_URL = "http://NOT-READY-CHECK-KUBECTL-OUTPUT"
-              echo "DNS NOT READY YET — Check above kubectl output"
+              env.APP_URL = "http://NOT-READY"
+              echo "URL NOT READY YET"
             }
           }
-          echo "OPEN YOUR SITE (if ready): ${env.APP_URL}"
+          echo "OPEN: ${env.APP_URL}"
         }
       }
     }
@@ -188,7 +194,6 @@ pipeline {
     success {
       echo "SUCCESS: Deployed v${APP_VERSION}!"
       echo "LIVE URL: ${env.APP_URL}"
-      echo "OPEN IN BROWSER: ${env.APP_URL}"
       cleanWs()
     }
     failure {
