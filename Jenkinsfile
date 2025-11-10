@@ -72,7 +72,7 @@ pipeline {
       }
     }
 
-    /* ---------------- BUILD+TEST ---------------- */
+    /* ---------------- BUILD & TEST ---------------- */
     stage('Build & Test') {
       steps {
         sh '''
@@ -90,46 +90,17 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
           sh '''
-            # Ensure suppression file exists with ALL Tomcat vulnerabilities suppressed
-            cat > dependency-check-suppressions.xml <<'OWASP_EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
-  <suppress>
-    <notes>False-positive noise on spring-web</notes>
-    <packageUrl regex="true">^pkg:maven/org\\.springframework/spring-web@.*$</packageUrl>
-    <cve>CVE-2016-1000027</cve>
-  </suppress>
-  <suppress>
-    <notes>Tomcat embedded server vulnerabilities - these are embedded and not exposed in our application context</notes>
-    <packageUrl regex="true">^pkg:maven/org\\.apache\\.tomcat\\.embed/.*@.*$</packageUrl>
-    <cve>CVE-2024-56337</cve>
-    <cve>CVE-2025-24813</cve>
-    <cve>CVE-2025-31651</cve>
-    <cve>CVE-2024-50379</cve>
-    <cve>CVE-2025-49124</cve>
-    <cve>CVE-2025-31650</cve>
-    <cve>CVE-2025-48988</cve>
-    <cve>CVE-2025-48989</cve>
-    <cve>CVE-2025-49125</cve>
-    <cve>CVE-2025-52520</cve>
-    <cve>CVE-2025-53506</cve>
-    <cve>CVE-2025-46701</cve>
-    <cve>CVE-2025-55668</cve>
-    <cve>CVE-2024-52318</cve>
-    <cve>CVE-2024-54677</cve>
-  </suppress>
-</suppressions>
-OWASP_EOF
-
-            # Run OWASP check with proper configuration to avoid Sonatype issues
-            echo "Running OWASP dependency check with enhanced configuration..."
+            # Run OWASP check with COMPLETE Sonatype OSS Index disabling
+            echo "Running OWASP dependency check with OSS Index disabled..."
             mvn -B org.owasp:dependency-check-maven:check \
               -Dnvd.api.key="$NVD_API_KEY" \
-              -Dodc.ossindex.enabled=false \
-              -Dodc.retirejs.enabled=false \
-              -DcveValidForHours=72 \
               -DfailBuildOnCVSS=11 \
-              -DskipSystemScope=true
+              -DcveValidForHours=72 \
+              -DskipSystemScope=true \
+              --define dependency-check.ossindex.enabled=false \
+              --define dependency-check.retirejs.enabled=false \
+              --define dependency-check.nodeaudit.enabled=false \
+              --define dependency-check.nodeanalyzer.enabled=false
           '''
         }
       }

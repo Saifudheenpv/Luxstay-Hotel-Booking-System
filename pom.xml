@@ -119,16 +119,8 @@
           <!-- Disable problematic analyzers -->
           <ossIndexAnalyzerEnabled>false</ossIndexAnalyzerEnabled>
           <retireJsAnalyzerEnabled>false</retireJsAnalyzerEnabled>
-          <nodeAnalyzerEnabled>false</nodeAnalyzerEnabled>
           <nodeAuditAnalyzerEnabled>false</nodeAuditAnalyzerEnabled>
-          <pnpmAuditAnalyzerEnabled>false</pnpmAuditAnalyzerEnabled>
-          <yarnAuditAnalyzerEnabled>false</yarnAuditAnalyzerEnabled>
-          <bundleAuditAnalyzerEnabled>false</bundleAuditAnalyzerEnabled>
-          <composerAnalyzerEnabled>false</composerAnalyzerEnabled>
-          <pythonAnalyzerEnabled>false</pythonAnalyzerEnabled>
-          <rubyAnalyzerEnabled>false</rubyAnalyzerEnabled>
-          <cocoapodsAnalyzerEnabled>false</cocoapodsAnalyzerEnabled>
-          <swiftAnalyzerEnabled>false</swiftAnalyzerEnabled>
+          <nodeAnalyzerEnabled>false</nodeAnalyzerEnabled>
         </configuration>
         <executions>
           <execution>
