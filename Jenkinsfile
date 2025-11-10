@@ -12,7 +12,7 @@ pipeline {
     APP_NAME          = 'hotel-booking-system'
     APP_VERSION       = "${env.BUILD_ID}"
     K8S_NAMESPACE     = 'hotel-booking'
-    REGION            = 'ap-southeast-1'
+    REGION            = 'ap-south-1'
     CLUSTER_NAME      = 'devops-cluster'
     APP_URL           = 'URL not available'
   }
