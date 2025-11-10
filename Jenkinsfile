@@ -157,36 +157,37 @@ pipeline {
     stage('Get App URL') {
       steps {
         withCredentials([
-          [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-eks-creds']
+          [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-eks-creds'],
+          file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
         ]) {
           script {
-            def lbDns = ""
-            def maxRetries = 15
+            def dns = ""
+            def maxRetries = 20
             def retryDelay = 10
 
+            sh 'mkdir -p .kube && cp "$KUBECONFIG_FILE" .kube/config && chmod 600 .kube/config'
+            sh 'export KUBECONFIG=.kube/config'
+            sh "aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}"
+
             for (int i = 0; i < maxRetries; i++) {
-              lbDns = sh(
-                script: """
-                  aws elbv2 describe-load-balancers \
-                    --query "LoadBalancers[?contains(DNSName, 'abcccf245973c')].DNSName" \
-                    --output text --region ${REGION} 2>/dev/null || echo ''
-                """,
+              dns = sh(
+                script: "kubectl get svc hotel-booking-service -n ${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo ''",
                 returnStdout: true
               ).trim()
 
-              if (lbDns && lbDns != '') {
-                env.APP_URL = "http://$lbDns"
-                echo "LIVE URL DETECTED: ${env.APP_URL}"
+              if (dns && dns != '' && dns =~ /elb\\.ap-south-1\\.amazonaws\\.com/) {
+                env.APP_URL = "http://$dns"
+                echo "LIVE URL READY: ${env.APP_URL}"
                 break
               } else {
-                echo "Waiting for Load Balancer DNS... (attempt ${i + 1}/${maxRetries})"
+                echo "Waiting for NLB DNS... (attempt ${i + 1}/${maxRetries})"
                 sleep(retryDelay)
               }
             }
 
-            if (!lbDns || lbDns == '') {
+            if (!dns || dns == '' || !dns.contains('elb.ap-south-1')) {
               env.APP_URL = "http://abcccf245973c4f8c87f6a01d2d303b0-59d0e235008406c1.elb.ap-south-1.amazonaws.com"
-              echo "Using known LIVE URL: ${env.APP_URL}"
+              echo "Using KNOWN LIVE URL: ${env.APP_URL}"
             }
           }
           echo "OPEN YOUR SITE: ${env.APP_URL}"
@@ -212,7 +213,7 @@ pipeline {
           export KUBECONFIG=.kube/config
           aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}
           kubectl patch service hotel-booking-service -n ${K8S_NAMESPACE} \
-            -p '{"spec:{"selector":{"app":"hotel-booking","version":"blue"}}}' || true
+            -p '{"spec":{"selector":{"app":"hotel-booking","version":"blue"}}}' || true
         '''
       }
       cleanWs()
