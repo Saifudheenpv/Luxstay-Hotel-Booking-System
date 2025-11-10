@@ -159,18 +159,14 @@ pipeline {
         withCredentials([
           file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
         ]) {
+          sh 'mkdir -p .kube && cp "$KUBECONFIG_FILE" .kube/config && chmod 600 .kube/config'
+          sh 'export KUBECONFIG=.kube/config'
+
+          // ONLY THIS — RAW KUBECTL IN LOG
+          sh "kubectl get svc hotel-booking-service -n hotel-booking -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo 'NOT READY'"
+
+          // Optional: Set URL for post/success
           script {
-            sh 'mkdir -p .kube && cp "$KUBECONFIG_FILE" .kube/config && chmod 600 .kube/config'
-            sh 'export KUBECONFIG=.kube/config'
-
-            // ONLY THIS — RAW KUBECTL OUTPUT
-            sh '''
-              echo "=== KUBECTL OUTPUT ==="
-              kubectl get svc hotel-booking-service -n hotel-booking \
-                -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "NOT READY"
-              echo "======================="
-            '''
-
             def dns = sh(
               script: "kubectl get svc hotel-booking-service -n hotel-booking -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo 'NOT READY'",
               returnStdout: true
@@ -178,13 +174,10 @@ pipeline {
 
             if (dns && dns.contains('elb.ap-south-1')) {
               env.APP_URL = "http://$dns"
-              echo "LIVE URL: ${env.APP_URL}"
             } else {
               env.APP_URL = "http://NOT-READY"
-              echo "URL NOT READY YET"
             }
           }
-          echo "OPEN: ${env.APP_URL}"
         }
       }
     }
