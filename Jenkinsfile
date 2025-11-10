@@ -1,4 +1,3 @@
-cat << 'EOF' > Jenkinsfile
 pipeline {
   agent any
 
@@ -32,7 +31,6 @@ pipeline {
   }
 
   stages {
-    /* ---------------- ENV ---------------- */
     stage('Environment Setup') {
       steps {
         sh """
@@ -48,14 +46,12 @@ pipeline {
       }
     }
 
-    /* ---------------- CODE ---------------- */
     stage('Checkout Code') {
       steps {
         checkout scm
       }
     }
 
-    /* ---------------- MIGRATION ---------------- */
     stage('Auto-Migrate to Jakarta') {
       when { expression { params.AUTO_MIGRATE_JAKARTA } }
       steps {
@@ -74,7 +70,6 @@ pipeline {
       }
     }
 
-    /* ---------------- BUILD & TEST ---------------- */
     stage('Build & Test') {
       steps {
         sh """
@@ -85,7 +80,6 @@ pipeline {
       }
     }
 
-    /* ---------------- SECURITY SCAN ---------------- */
     stage('OWASP Security Scan') {
       steps {
         withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
@@ -103,7 +97,6 @@ pipeline {
       }
     }
 
-    /* ---------------- SONAR ---------------- */
     stage('SonarQube Analysis') {
       steps {
         withSonarQubeEnv('Sonar-Server') {
@@ -120,7 +113,6 @@ pipeline {
       }
     }
 
-    /* ---------------- DOCKER ---------------- */
     stage('Docker Build & Push') {
       steps {
         withCredentials([usernamePassword(credentialsId: 'docker-token', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
@@ -136,7 +128,6 @@ pipeline {
       }
     }
 
-    /* ---------------- DEPLOY TO EKS ---------------- */
     stage('Deploy to EKS') {
       steps {
         withCredentials([
@@ -153,18 +144,13 @@ pipeline {
 
             kubectl create namespace \${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 
-            # Apply MySQL
             kubectl apply -f k8s/mysql-deployment.yaml -n \${K8S_NAMESPACE}
             kubectl apply -f k8s/mysql-service.yaml -n \${K8S_NAMESPACE}
 
-            # Deploy BLUE (current live)
             export APP_VERSION=\${APP_VERSION}
             envsubst < k8s/app-deployment-blue.yaml | kubectl apply -f - -n \${K8S_NAMESPACE}
-
-            # Deploy GREEN (new version)
             envsubst < k8s/app-deployment-green.yaml | kubectl apply -f - -n \${K8S_NAMESPACE}
 
-            # Service defaults to BLUE
             kubectl apply -f k8s/app-service.yaml -n \${K8S_NAMESPACE}
 
             echo "Deployed GREEN with image: \${DOCKER_NAMESPACE}/\${APP_NAME}:\${APP_VERSION}"
@@ -173,7 +159,6 @@ pipeline {
       }
     }
 
-    /* ---------------- BLUE-GREEN SWITCH ---------------- */
     stage('Blue-Green Switch') {
       when { expression { params.DEPLOYMENT_STRATEGY == 'blue-green' && params.AUTO_SWITCH } }
       steps {
@@ -182,17 +167,15 @@ pipeline {
           file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
         ]) {
           script {
-            def appUrl = sh(
+            def hostname = sh(
               script: "kubectl get svc hotel-booking-service -n \${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' || true",
               returnStdout: true
             ).trim()
-            if (!appUrl) {
-              appUrl = sh(
-                script: "kubectl get svc hotel-booking-service -n \${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' || true",
-                returnStdout: true
-              ).trim()
-            }
-            env.APP_URL = appUrl ? "http://$appUrl" : "URL not available"
+            def ip = sh(
+              script: "kubectl get svc hotel-booking-service -n \${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' || true",
+              returnStdout: true
+            ).trim()
+            env.APP_URL = hostname ? "http://$hostname" : (ip ? "http://$ip" : "URL not available")
           }
 
           sh """
@@ -208,14 +191,12 @@ pipeline {
 
             echo "Traffic switched! GREEN is LIVE!"
 
-            # Optional: Scale down old BLUE
             kubectl scale deployment hotel-booking-blue --replicas=0 -n \${K8S_NAMESPACE} || true
           """
         }
       }
     }
 
-    /* ---------------- POST-DEPLOY VALIDATION ---------------- */
     stage('Post-Deployment Validation') {
       steps {
         withCredentials([
@@ -223,18 +204,16 @@ pipeline {
           file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
         ]) {
           script {
-            if (!env.APP_URL || env.APP_URL == 'http://') {
-              def url = sh(
+            if (!env.APP_URL || env.APP_URL == 'http://' || env.APP_URL == 'URL not available') {
+              def hostname = sh(
                 script: "kubectl get svc hotel-booking-service -n \${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' || true",
                 returnStdout: true
               ).trim()
-              if (!url) {
-                url = sh(
-                  script: "kubectl get svc hotel-booking-service -n \${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' || true",
-                  returnStdout: true
-                ).trim()
-              }
-              env.APP_URL = url ? "http://$url" : "URL not available"
+              def ip = sh(
+                script: "kubectl get svc hotel-booking-service -n \${K8S_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' || true",
+                returnStdout: true
+              ).trim()
+              env.APP_URL = hostname ? "http://$hostname" : (ip ? "http://$ip" : "URL not available")
             }
           }
 
@@ -264,36 +243,11 @@ pipeline {
     }
   }
 
-  /* ---------------- POST ACTIONS ---------------- */
   post {
     success {
       echo "SUCCESS: Deployed v${APP_VERSION}!"
       echo "LIVE APPLICATION URL: ${APP_URL}"
       echo "Open in browser: ${APP_URL}"
-      cleanWs()
-    }
-    failure {
-      echo "FAILED: Rolling back to BLUE..."
-      withCredentials([
-        [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-eks-creds'],
-        file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
-      ]) {
-        sh """
-          export KUBECONFIG="$WORKSPACE/.kube/config"
-          aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}
-          kubectl patch service hotel-booking-service -n ${K8S_NAMESPACE} \
-            -p '{"spec":{"selector":{"app":"hotel-booking","version":"blue"}}}' || true
-          echo "Rollback to BLUE completed!"
-        """
-      }
-      cleanWs()
-    }
-    always {
-      echo "Pipeline finished at: ${new Date().format('yyyy-MM-dd HH:mm:ss IST')}"
-    }
-  }
-      echo "LIVE APPLICATION URL: \${APP_URL}"
-      echo "Open in browser: \${APP_URL}"
       cleanWs()
     }
     failure {
@@ -313,8 +267,7 @@ pipeline {
       cleanWs()
     }
     always {
-      echo "Pipeline finished at: $(date '+%Y-%m-%d %H:%M:%S IST')"
+      echo "Pipeline finished at: ${new Date().format('yyyy-MM-dd HH:mm:ss IST')}"
     }
   }
 }
-EOF
