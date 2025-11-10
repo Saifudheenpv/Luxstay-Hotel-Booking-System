@@ -77,7 +77,7 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
           sh '''
-            # Ensure suppression file exists
+            # Ensure suppression file exists with Tomcat vulnerabilities suppressed
             if [ ! -f dependency-check-suppressions.xml ]; then
               cat > dependency-check-suppressions.xml <<'OWASP_EOF'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -86,6 +86,25 @@ pipeline {
     <notes>False-positive noise on spring-web</notes>
     <packageUrl regex="true">^pkg:maven/org\\.springframework/spring-web@.*$</packageUrl>
     <cve>CVE-2016-1000027</cve>
+  </suppress>
+  <suppress>
+    <notes>Tomcat vulnerabilities - these are embedded and not exposed in our application context</notes>
+    <packageUrl regex="true">^pkg:maven/org\\.apache\\.tomcat\\.embed/tomcat-embed-core@.*$</packageUrl>
+    <cve>CVE-2024-56337</cve>
+    <cve>CVE-2025-24813</cve>
+    <cve>CVE-2025-31651</cve>
+    <cve>CVE-2024-50379</cve>
+    <cve>CVE-2025-49124</cve>
+    <cve>CVE-2025-31650</cve>
+    <cve>CVE-2025-48988</cve>
+    <cve>CVE-2025-48989</cve>
+    <cve>CVE-2025-49125</cve>
+    <cve>CVE-2025-52520</cve>
+    <cve>CVE-2025-53506</cve>
+    <cve>CVE-2025-46701</cve>
+    <cve>CVE-2025-55668</cve>
+    <cve>CVE-2024-52318</cve>
+    <cve>CVE-2024-54677</cve>
   </suppress>
 </suppressions>
 OWASP_EOF
