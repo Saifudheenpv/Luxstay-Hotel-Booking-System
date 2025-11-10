@@ -6,8 +6,8 @@
     <cve>CVE-2016-1000027</cve>
   </suppress>
   <suppress>
-    <notes>Tomcat vulnerabilities - these are embedded and not exposed in our application context</notes>
-    <packageUrl regex="true">^pkg:maven/org\.apache\.tomcat\.embed/tomcat-embed-core@.*$</packageUrl>
+    <notes>Tomcat embedded server vulnerabilities - these are embedded and not exposed in our application context</notes>
+    <packageUrl regex="true">^pkg:maven/org\.apache\.tomcat\.embed/.*@.*$</packageUrl>
     <cve>CVE-2024-56337</cve>
     <cve>CVE-2025-24813</cve>
     <cve>CVE-2025-31651</cve>

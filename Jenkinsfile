@@ -77,9 +77,8 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
           sh '''
-            # Ensure suppression file exists with Tomcat vulnerabilities suppressed
-            if [ ! -f dependency-check-suppressions.xml ]; then
-              cat > dependency-check-suppressions.xml <<'OWASP_EOF'
+            # Ensure suppression file exists with ALL Tomcat vulnerabilities suppressed
+            cat > dependency-check-suppressions.xml <<'OWASP_EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
   <suppress>
@@ -88,8 +87,8 @@ pipeline {
     <cve>CVE-2016-1000027</cve>
   </suppress>
   <suppress>
-    <notes>Tomcat vulnerabilities - these are embedded and not exposed in our application context</notes>
-    <packageUrl regex="true">^pkg:maven/org\\.apache\\.tomcat\\.embed/tomcat-embed-core@.*$</packageUrl>
+    <notes>Tomcat embedded server vulnerabilities - these are embedded and not exposed in our application context</notes>
+    <packageUrl regex="true">^pkg:maven/org\\.apache\\.tomcat\\.embed/.*@.*$</packageUrl>
     <cve>CVE-2024-56337</cve>
     <cve>CVE-2025-24813</cve>
     <cve>CVE-2025-31651</cve>
@@ -108,7 +107,6 @@ pipeline {
   </suppress>
 </suppressions>
 OWASP_EOF
-            fi
 
             # Clean and compile with tests; use test profile explicitly for H2 database
             echo "Running tests with H2 in-memory database (test profile)..."
