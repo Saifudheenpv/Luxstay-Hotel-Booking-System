@@ -48,48 +48,44 @@ graph TD
     F --> G[Trivy Image Vulnerability Scan]
     G --> H[Deploy to AWS EKS (Blue/Green)]
     H --> I[Email Notification (Success/Failure)]
-
 🔐 Security Stages
 1️⃣ OWASP Dependency Check
-
 Scans all Maven dependencies for CVEs
 
-Suppression file used to handle known safe Tomcat false positives
+Uses suppression file for safe Tomcat false positives
 
 Generates an HTML security report
 
 2️⃣ Trivy Container Scan
+Scans Docker images for OS and app vulnerabilities
 
-Scans Docker images for OS and application-layer vulnerabilities
-
-Only allows 0 CRITICAL and 0 HIGH vulnerabilities to pass
+Pipeline passes only if 0 CRITICAL and 0 HIGH CVEs found
 
 🧩 Jenkins Pipeline Breakdown
-| Stage                   | Purpose                                               | Tools Used        |
-| ----------------------- | ----------------------------------------------------- | ----------------- |
-| **Environment Setup**   | Verify Java, Maven, Docker, Kubectl versions          | Shell             |
-| **Checkout Code**       | Pull latest source from GitHub                        | Jenkins SCM       |
-| **Build & Test**        | Compile and run JUnit tests                           | Maven             |
-| **OWASP Scan**          | Detect dependency vulnerabilities                     | OWASP             |
-| **SonarQube Analysis**  | Evaluate code quality and coverage                    | SonarQube         |
-| **Docker Build & Push** | Build container image and push to DockerHub           | Docker            |
-| **Trivy Scan**          | Scan image for vulnerabilities                        | Trivy             |
-| **Deploy to EKS**       | Deploy to AWS EKS with rolling or blue-green strategy | AWS CLI + kubectl |
-| **Blue-Green Switch**   | Automatically switch traffic to the new version       | kubectl patch     |
-| **Email Notification**  | Send HTML report to developer                         | Gmail SMTP        |
-
+Stage	Purpose	Tools Used
+Environment Setup	Verify Java, Maven, Docker, Kubectl versions	Shell
+Checkout Code	Pull latest source from GitHub	Jenkins SCM
+Build & Test	Compile and run JUnit tests	Maven
+OWASP Scan	Detect dependency vulnerabilities	OWASP
+SonarQube Analysis	Evaluate code quality and coverage	SonarQube
+Docker Build & Push	Build container image and push to DockerHub	Docker
+Trivy Scan	Scan image for vulnerabilities	Trivy
+Deploy to EKS	Deploy to AWS EKS (rolling or blue-green)	AWS CLI + kubectl
+Blue-Green Switch	Switch traffic to new version	kubectl patch
+Email Notification	Send HTML report to developer	Gmail SMTP
 
 ☸️ Kubernetes Deployment
 🟩 Blue-Green Deployment Strategy
+Two environments (blue and green) run simultaneously
 
-Two environments (blue and green) run simultaneously.
+New version (green) deployed alongside current (blue)
 
-New version (green) deployed alongside the current (blue).
+Once ready, traffic switches from blue → green
 
-Once ready, service traffic switches from blue → green.
+Old blue scaled down → zero downtime
 
-blue scaled down, ensuring zero downtime.
-
+mermaid
+Copy code
 flowchart LR
     A[Users] -->|Requests| B[LoadBalancer Service]
     B --> C1[Blue Deployment v1]
@@ -97,11 +93,10 @@ flowchart LR
     C2 -->|Healthy| D[Traffic Switch]
     D -->|New Traffic| C2
     C1 -->|Scaled Down| X[Idle]
-
-
 🐳 Docker Setup
 🧩 Multi-Stage Dockerfile
-
+dockerfile
+Copy code
 # Build Stage
 FROM maven:3.9.5-eclipse-temurin-21 AS build
 WORKDIR /app
@@ -119,9 +114,9 @@ USER spring
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["java","-jar","-Dspring.profiles.active=prod","app.jar"]
-
 ☁️ AWS EKS Deployment Flow
-
+mermaid
+Copy code
 flowchart TD
     A[Jenkins CI Server] --> B[Build Docker Image]
     B --> C[Push to DockerHub]
@@ -130,16 +125,14 @@ flowchart TD
     D --> F[Green Deployment]
     F --> G[LoadBalancer Service]
     G --> H[Users Access Latest App]
-
 🧠 SonarQube Integration
+Jenkins connects to SonarQube using a secure token
 
-Jenkins connects to SonarQube using a configured token.
+SonarQube analyzes code for:
 
-SonarQube analyzes:
+Smells
 
-Code Smells
-
-Test Coverage
+Coverage
 
 Duplications
 
@@ -150,44 +143,40 @@ Dashboard:
 
 📬 Email Notification Examples
 ✅ Success Email
-
 Subject: ✅ LIVE: Luxstay Hotel v94
-Body:
 
-🎉 Your App is LIVE!
-Version: v94
-URL: http://<LoadBalancer-DNS>
+makefile
+Copy code
+🎉 Your App is LIVE!  
+Version: v94  
+URL: http://<LoadBalancer-DNS>  
 Jenkins: <Build URL>
-
-
 ❌ Failure Email
-
 Subject: ❌ FAILED: Luxstay Hotel v94
-Body:
 
-🚨 Build Failed!
+bash
+Copy code
+🚨 Build Failed!  
 Check: http://jenkins-url/job/94/console
-
-
 🧪 Quality and Security Verification
-
-| Check           | Tool      | Status   |
-| --------------- | --------- | -------- |
-| Unit Tests      | JUnit     | ✅ Passed |
-| Code Quality    | SonarQube | ✅ Clean  |
-| Dependency Scan | OWASP     | ✅ Safe   |
-| Container Scan  | Trivy     | ✅ Secure |
-| Deployment      | AWS EKS   | ✅ Stable |
-
+Check	Tool	Status
+Unit Tests	JUnit	✅ Passed
+Code Quality	SonarQube	✅ Clean
+Dependency Scan	OWASP	✅ Safe
+Container Scan	Trivy	✅ Secure
+Deployment	AWS EKS	✅ Stable
 
 🐳 DockerHub Image
 👉 https://hub.docker.com/r/saifudheenpv/hotel-booking-system
 
 🌐 Live Demo (AWS EKS)
+cpp
+Copy code
 http://<loadbalancer-dns>.elb.ap-south-1.amazonaws.com
-
 👨‍💻 Author
-
 Saifudheen P.V
 💼 DevOps & Cloud Engineer | AWS | Jenkins | Kubernetes | Security Automation
 📧 mesaifudheenpv@gmail.com
+
+🪪 License
+This project is licensed under the MIT License — feel free to use for learning or demonstration.
