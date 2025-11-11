@@ -18,7 +18,8 @@ public class HotelService {
     }
     
     public Optional<Hotel> getHotelById(Long id) {
-        return hotelRepository.findById(id);
+        // ✅ Use the eager query (no lazy proxy)
+        return hotelRepository.findHotelDetailsById(id);
     }
     
     public List<Hotel> getHotelsByCity(String city) {
