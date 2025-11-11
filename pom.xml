@@ -25,7 +25,6 @@
   </properties>
 
   <dependencies>
-    <!-- Web + Actuator -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
@@ -34,8 +33,6 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
-
-    <!-- Data JPA + MySQL -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-data-jpa</artifactId>
@@ -45,20 +42,14 @@
       <artifactId>mysql-connector-j</artifactId>
       <version>9.1.0</version>
     </dependency>
-
-    <!-- Thymeleaf -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-thymeleaf</artifactId>
     </dependency>
-
-    <!-- Validation -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-validation</artifactId>
     </dependency>
-
-    <!-- Tests -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
@@ -73,23 +64,21 @@
 
   <build>
     <plugins>
-      <!-- Spring Boot -->
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
       </plugin>
 
-      <!-- Compiler -->
+      <!-- FIXED: Use release 17 -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.11.0</version>
         <configuration>
-          <release>21</release>
+          <release>17</release>
         </configuration>
       </plugin>
 
-      <!-- Surefire: force random port for tests -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
@@ -97,37 +86,18 @@
         <configuration>
           <systemPropertyVariables>
             <server.port>0</server.port>
-            <spring.main.lazy-initialization>true</spring.main.lazy-initialization>
           </systemPropertyVariables>
         </configuration>
       </plugin>
 
-      <!-- OWASP Dependency-Check: FIXED -->
       <plugin>
         <groupId>org.owasp</groupId>
         <artifactId>dependency-check-maven</artifactId>
         <version>12.1.0</version>
         <configuration>
-          <nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
           <failBuildOnCVSS>11</failBuildOnCVSS>
           <format>HTML</format>
           <outputDirectory>${project.build.directory}</outputDirectory>
-          <skipSystemScope>true</skipSystemScope>
-          <suppressionFile>${project.basedir}/dependency-check-suppressions.xml</suppressionFile>
-
-          <!-- CORRECT: Use <analyzers> (plural) -->
-          <analyzers>
-            <ossindex.enabled>false</ossindex.enabled>
-            <retirejs.enabled>false</retirejs.enabled>
-            <nodeAudit.enabled>false</nodeAudit.enabled>
-            <nodeAnalyzer.enabled>false</nodeAnalyzer.enabled>
-            <bundleAudit.enabled>false</bundleAudit.enabled>
-            <composer.enabled>false</composer.enabled>
-            <python.enabled>false</python.enabled>
-            <ruby.enabled>false</ruby.enabled>
-            <cocoapods.enabled>false</cocoapods.enabled>
-            <swift.enabled>false</swift.enabled>
-          </analyzers>
         </configuration>
         <executions>
           <execution>
