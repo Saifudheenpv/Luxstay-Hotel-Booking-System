@@ -1,38 +1,50 @@
-🏨 Luxstay Hotel Booking System — DevSecOps CI/CD Pipeline 🚀
-A full-scale, production-grade Java Spring Boot application deployed through a modern DevSecOps pipeline using Jenkins, Docker, SonarQube, OWASP, Trivy, Kubernetes (EKS), and AWS Cloud.
+# 🏨 Luxstay Hotel Booking System — DevSecOps CI/CD Pipeline 🚀
 
-🌟 Project Overview
-Luxstay Hotel Booking System is a Spring Boot web application that provides room booking, user management, and transaction handling — all deployed through a secure, automated CI/CD pipeline following DevSecOps best practices.
+> **A full-scale, production-grade Java Spring Boot application** deployed through a modern **DevSecOps pipeline** using Jenkins, Docker, SonarQube, OWASP, Trivy, Kubernetes (EKS), and AWS Cloud.
 
-The pipeline integrates security (OWASP, Trivy), quality (SonarQube), automation (Jenkins), and scalable deployment (EKS).
+---
 
-🧰 Tech Stack
-🧱 Backend (Application)
-Java 17
+## 🌟 Project Overview
 
-Spring Boot 3.3.11 (secured version)
+**Luxstay Hotel Booking System** is a **Spring Boot web application** that provides room booking, user management, and transaction handling — all deployed through a **secure, automated CI/CD pipeline** following **DevSecOps best practices**.
 
-Spring Data JPA + Hibernate
+The pipeline integrates **security (OWASP, Trivy)**, **quality (SonarQube)**, **automation (Jenkins)**, and **scalable deployment (EKS)**.
 
-MySQL 8.x
+---
 
-Thymeleaf for lightweight UI
+## 🧰 Tech Stack
 
-Spring Boot Actuator for health checks
+### 🧱 Backend (Application)
+- **Java 17**
+- **Spring Boot 3.3.11 (secured version)**
+- **Spring Data JPA + Hibernate**
+- **MySQL 8.x**
+- **Thymeleaf** for lightweight UI
+- **Spring Boot Actuator** for health checks
 
-🧩 DevOps / Cloud Stack
-Jenkins (Declarative Pipeline) – CI/CD Orchestrator
+### 🧩 DevOps / Cloud Stack
+- **Jenkins (Declarative Pipeline)** – CI/CD Orchestrator  
+- **Docker + DockerHub** – Containerization  
+- **OWASP Dependency Check** – Dependency vulnerability scanning  
+- **Trivy** – Container image security scan  
+- **SonarQube** – Static code analysis  
+- **Kubernetes (AWS EKS)** – Deployment & scaling  
+- **AWS CLI + IAM** – EKS access  
+- **Email Notification (Gmail SMTP)** – Automated build alerts  
 
-Docker + DockerHub – Containerization
+---
 
-OWASP Dependency Check – Dependency vulnerability scanning
+## ⚙️ CI/CD Pipeline Workflow
 
-Trivy – Container image security scan
+Every GitHub push automatically triggers this **DevSecOps pipeline**:
 
-SonarQube – Static code analysis
-
-Kubernetes (AWS EKS) – Deployment & scaling
-
-AWS CLI + IAM – EKS access
-
-Email Notification (Gmail SMTP) – Automated build alerts
+```mermaid
+graph TD
+    A[GitHub Push] -->|Webhook Trigger| B[Jenkins Pipeline]
+    B --> C[Build & Test (Maven)]
+    C --> D[OWASP Dependency Scan]
+    D --> E[SonarQube Code Quality Analysis]
+    E --> F[Docker Build & Push to DockerHub]
+    F --> G[Trivy Image Vulnerability Scan]
+    G --> H[Deploy to AWS EKS (Blue/Green)]
+    H --> I[Email Notification (Success/Failure)]
