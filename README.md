@@ -10,40 +10,42 @@ It integrates **SonarQube**, **OWASP Dependency Check**, **Trivy**, **Docker**, 
 ```mermaid
 flowchart TD
   A[Developer Push Code to GitHub] --> B[Jenkins Trigger]
-  B --> C[Build & Unit Test (Maven)]
-  C --> D[OWASP Dependency Check]
-  D --> E[SonarQube Code Analysis]
-  E --> F[Docker Build & Push to DockerHub]
-  F --> G[Trivy Image Security Scan]
-  G --> H[Deploy to AWS EKS (Kubernetes)]
+  B --> C[Build and Test with Maven]
+  C --> D[Run OWASP Security Scan]
+  D --> E[SonarQube Code Quality Check]
+  E --> F[Build and Push Docker Image]
+  F --> G[Scan Docker Image with Trivy]
+  G --> H[Deploy Application to AWS EKS]
   H --> I{Deployment Strategy}
-  I -->|Blue-Green| J[Switch Traffic to Green]
-  I -->|Rolling| K[Rolling Update]
-  J --> L[Email Notification: Success]
+  I -->|Blue-Green| J[Switch Traffic to Green Environment]
+  I -->|Rolling| K[Perform Rolling Update]
+  J --> L[Send Success Notification]
   K --> L
-  B --> M[Email Notification: Failure]
+  B --> M[Send Failure Notification]
 ```
 
 ---
 
-### 💻 **Emoji-Rich Diagram (for VS Code Preview)**
+<details>
+<summary>💻 Emoji-Rich Diagram (for VS Code Preview)</summary>
 
 ```mermaid
 flowchart TD
   A[💻 Developer Push Code to GitHub] --> B[🔁 Jenkins Trigger]
-  B --> C[⚙️ Build & Unit Test (Maven)]
-  C --> D[🔍 OWASP Dependency Check]
+  B --> C[⚙️ Build and Test with Maven]
+  C --> D[🔍 OWASP Security Scan]
   D --> E[🧠 SonarQube Code Analysis]
-  E --> F[🐳 Docker Build & Push to DockerHub]
-  F --> G[🛡️ Trivy Image Security Scan]
-  G --> H[☸️ Deploy to AWS EKS (Kubernetes)]
+  E --> F[🐳 Docker Build and Push]
+  F --> G[🛡️ Trivy Image Scan]
+  G --> H[☸️ Deploy to AWS EKS]
   H --> I{Deployment Strategy}
-  I -->|Blue-Green| J[🟩 Switch Traffic to Green]
+  I -->|Blue-Green| J[🟩 Switch to Green]
   I -->|Rolling| K[🔄 Rolling Update]
-  J --> L[✅ Email Notification: Success]
+  J --> L[✅ Email Success]
   K --> L
-  B --> M[❌ Email Notification: Failure]
+  B --> M[❌ Email Failure]
 ```
+</details>
 
 ---
 
