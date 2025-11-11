@@ -22,3 +22,5 @@ flowchart TD
   J --> L[✅ Email Notification: Success]
   K --> L
   B --> M[❌ Email Notification: Failure]
+
+```
