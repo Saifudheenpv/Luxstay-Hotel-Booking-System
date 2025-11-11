@@ -1,37 +1,47 @@
-# Build stage
+# ===========================================
+# BUILD STAGE: Build the Spring Boot JAR
+# ===========================================
 FROM maven:3.9.5-eclipse-temurin-21 AS build
 WORKDIR /app
 
-# Copy pom.xml and download dependencies
+# Copy only pom.xml first for better build caching
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
 
-# Copy source code
+# Now copy the actual source code
 COPY src ./src
 
-# Build application
+# Package the application (skip tests for CI speed)
 RUN mvn clean package -DskipTests
 
-# Runtime stage
+
+# ===========================================
+# RUNTIME STAGE: Run the built JAR
+# ===========================================
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 
-# Install curl for health checks and wget for alternative health checks
-RUN apk update && apk add --no-cache curl wget
+# Install curl & wget for health checks (Debian base → use apt)
+RUN apt-get update && apt-get install -y curl wget && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user for security
-RUN addgroup -S spring && adduser -S spring -G spring
+# Create a non-root user for better container security
+RUN useradd -ms /bin/bash spring
 USER spring
 
-# Copy jar from build stage
+# Copy the JAR from the build stage
 COPY --from=build /app/target/*.jar app.jar
 
-# Health check for Kubernetes
-HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+# Add a health check for Kubernetes liveness/readiness probes
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8080/actuator/health || exit 1
 
-# Expose port
+# Expose the default Spring Boot port
 EXPOSE 8080
 
-# Run the application with optimized JVM settings
-ENTRYPOINT ["java", "-jar", "-Dspring.profiles.active=prod", "-Djava.security.egd=file:/dev/./urandom", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "app.jar"]
+# Run the application with optimized JVM settings for containers
+ENTRYPOINT ["java", "-jar", \
+  "-Dspring.profiles.active=prod", \
+  "-Djava.security.egd=file:/dev/./urandom", \
+  "-XX:+UseContainerSupport", \
+  "-XX:MaxRAMPercentage=75.0", \
+  "app.jar"]
