@@ -125,15 +125,17 @@ pipeline {
             envsubst < k8s/app-deployment-blue.yaml | kubectl apply -f - -n ${K8S_NAMESPACE}
             envsubst < k8s/app-deployment-green.yaml | kubectl apply -f - -n ${K8S_NAMESPACE}
             kubectl apply -f k8s/app-service.yaml -n ${K8S_NAMESPACE}
+
+            echo "Service Status:"
+            kubectl get svc hotel-booking-service -n hotel-booking
           '''
-          // Extract IP silently
+
           script {
             def ip = sh(
-              script: '''
-                kubectl get svc hotel-booking-service -n hotel-booking --no-headers 2>/dev/null | awk '{print $4}'
-              ''',
+              script: "kubectl get svc hotel-booking-service -n hotel-booking --no-headers 2>/dev/null | awk '{print \$4}'",
               returnStdout: true
             ).trim()
+
             env.EXTERNAL_IP = ip.contains('elb.amazonaws.com') ? ip : 'NOT-READY'
           }
         }
