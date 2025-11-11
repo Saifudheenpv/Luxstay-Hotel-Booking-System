@@ -1,17 +1,14 @@
+cat > dependency-check-suppressions.xml << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
-<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
-  <suppress>
-    <notes>False-positive noise on spring-web</notes>
-    <packageUrl regex="true">^pkg:maven/org\.springframework/spring-web@.*$</packageUrl>
-    <cve>CVE-2016-1000027</cve>
-  </suppress>
-  <suppress>
-    <notes>Tomcat embedded server vulnerabilities - these are embedded and not exposed in our application context</notes>
-    <packageUrl regex="true">^pkg:maven/org\.apache\.tomcat\.embed/.*@.*$</packageUrl>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/suppressions.xsd">
+  <!-- Suppress all Tomcat embedded CVEs (not exposed in container) -->
+  <suppress until="2026-12-31">
+    <notes>Embedded Tomcat in Spring Boot - not exposed externally</notes>
+    <packageUrl regex="true">^pkg:maven/org\.apache\.tomcat\.embed/tomcat-embed.*$</packageUrl>
+    <cve>CVE-2024-50379</cve>
     <cve>CVE-2024-56337</cve>
     <cve>CVE-2025-24813</cve>
     <cve>CVE-2025-31651</cve>
-    <cve>CVE-2024-50379</cve>
     <cve>CVE-2025-49124</cve>
     <cve>CVE-2025-31650</cve>
     <cve>CVE-2025-48988</cve>
@@ -25,3 +22,4 @@
     <cve>CVE-2024-54677</cve>
   </suppress>
 </suppressions>
+EOF

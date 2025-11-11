@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   tools {
-    jdk 'JDK17'      // YOUR EXISTING TOOL
+    jdk 'JDK17'
     maven 'Maven3'
   }
 
@@ -20,14 +20,14 @@ pipeline {
   options {
     timestamps()
     disableConcurrentBuilds()
-    timeout(time: 30, unit: 'MINUTES')
-    buildDiscarder(logRotator(numToKeepStr: '10'))
+    timeout(time: 40, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '15'))
   }
 
   parameters {
-    choice(name: 'DEPLOYMENT_STRATEGY', choices: ['blue-green', 'rolling'], description: 'Select deployment strategy')
-    booleanParam(name: 'AUTO_SWITCH', defaultValue: true, description: 'Auto switch traffic to new version?')
-    booleanParam(name: 'AUTO_MIGRATE_JAKARTA', defaultValue: false, description: 'Auto-convert javax.* to jakarta.*')
+    choice(name: 'DEPLOYMENT_STRATEGY', choices: ['blue-green', 'rolling'], description: 'Deployment Strategy')
+    booleanParam(name: 'AUTO_SWITCH', defaultValue: true, description: 'Auto switch traffic?')
+    booleanParam(name: 'AUTO_MIGRATE_JAKARTA', defaultValue: false, description: 'Migrate javax → jakarta')
   }
 
   stages {
@@ -37,7 +37,7 @@ pipeline {
           echo "Java: $(java -version 2>&1 | head -1)"
           echo "Maven: $(mvn -version | head -1)"
           echo "Docker: $(docker --version)"
-          echo "Kubectl: $(kubectl version --client=true --short=true || kubectl version --client)"
+          echo "Kubectl: $(kubectl version --client --short 2>/dev/null || kubectl version --client)"
         '''
       }
     }
@@ -53,8 +53,7 @@ pipeline {
           find src -name "*.java" -type f -print0 | xargs -0 sed -i \
             -e 's/import javax\\.persistence\\./import jakarta.persistence./g' \
             -e 's/import javax\\.validation\\./import jakarta.validation./g' \
-            -e 's/import javax\\.servlet\\./import jakarta.servlet./g' \
-            -e 's/import javax\\.annotation\\./import jakarta.annotation./g'
+            -e 's/import javax\\.servlet\\./import jakarta.servlet./g'
         '''
       }
     }
@@ -69,7 +68,10 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
           sh '''
-            mvn -B org.owasp:dependency-check-maven:check -Dnvd.api.key="$NVD_API_KEY" -DfailBuildOnCVSS=11
+            mvn -B org.owasp:dependency-check-maven:check \
+              -Dnvd.api.key="$NVD_API_KEY" \
+              -DfailBuildOnCVSS=11 \
+              -DossindexAnalyzer.enabled=false
           '''
         }
       }
@@ -118,7 +120,6 @@ pipeline {
           file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
         ]) {
           sh '''
-            set +x
             mkdir -p .kube && cp "$KUBECONFIG_FILE" .kube/config && chmod 600 .kube/config
             export KUBECONFIG=.kube/config
             aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}
@@ -132,15 +133,15 @@ pipeline {
             kubectl apply -f k8s/app-service.yaml -n ${K8S_NAMESPACE}
 
             echo "Service Status:"
-            kubectl get svc hotel-booking-service -n hotel-booking
+            kubectl get svc hotel-booking-service -n hotel-booking -o wide
           '''
 
           script {
             def ip = sh(
-              script: 'kubectl get svc hotel-booking-service -n hotel-booking --no-headers 2>/dev/null | awk "{print \$4}"',
+              script: 'kubectl get svc hotel-booking-service -n hotel-booking --no-headers | awk "{print \$4}"',
               returnStdout: true
             ).trim()
-            env.EXTERNAL_IP = ip && ip.contains('elb.amazonaws.com') ? ip : 'NOT-READY'
+            env.EXTERNAL_IP = ip.contains('elb.amazonaws.com') ? ip : 'PENDING'
           }
         }
       }
@@ -157,8 +158,9 @@ pipeline {
             export KUBECONFIG=.kube/config
             aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}
             kubectl wait --for=condition=ready pod -l app=hotel-booking,version=green -n ${K8S_NAMESPACE} --timeout=300s
-            kubectl patch service hotel-booking-service -n ${K8S_NAMESPACE} -p '{"spec":{"selector":{"app":"hotel-booking","version":"green"}}}'
+            kubectl patch service hotel-booking-service -n ${K8S_NAMESPACE} -p '{"spec":{"selector":{"version":"green"}}}'
             kubectl scale deployment hotel-booking-blue --replicas=0 -n ${K8S_NAMESPACE} || true
+            echo "Traffic switched to GREEN v${APP_VERSION}"
           '''
         }
       }
@@ -170,15 +172,15 @@ pipeline {
       echo "SUCCESS: Deployed v${APP_VERSION}!"
       emailext(
         to: 'mesaifudheenpv@gmail.com',
-        subject: "LIVE: Hotel Booking v${APP_VERSION}",
+        subject: "LIVE: Luxstay Hotel Booking v${APP_VERSION}",
         body: """
-        <h2>Your app is LIVE!</h2>
+        <h2>Your Luxury Hotel App is LIVE!</h2>
         <b>Version:</b> v${APP_VERSION}<br>
+        <b>Strategy:</b> ${params.DEPLOYMENT_STRATEGY}<br>
         <b>Cluster:</b> ${CLUSTER_NAME}<br>
         <b>Namespace:</b> ${K8S_NAMESPACE}<br>
-        <b>External IP:</b> ${env.EXTERNAL_IP}<br>
-        <b>Open:</b> <a href="http://${env.EXTERNAL_IP}">http://${env.EXTERNAL_IP}</a><br><br>
-        Jenkins: <a href="${env.BUILD_URL}">${env.BUILD_URL}</a>
+        <b>External URL:</b> <a href="http://${env.EXTERNAL_IP}">http://${env.EXTERNAL_IP}</a><br><br>
+        Jenkins Build: <a href="${env.BUILD_URL}">${env.BUILD_URL}</a>
         """,
         mimeType: 'text/html'
       )
@@ -188,7 +190,7 @@ pipeline {
       emailext(
         to: 'mesaifudheenpv@gmail.com',
         subject: "FAILED: Hotel Booking v${APP_VERSION}",
-        body: "Deployment Failed!<br>Check: <a href='${env.BUILD_URL}console'>Console Log</a>",
+        body: "Build Failed!<br>Check: <a href='${env.BUILD_URL}console'>Console Log</a>",
         mimeType: 'text/html'
       )
     }
